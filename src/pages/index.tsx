@@ -33,7 +33,7 @@ export default function LandingPage() {
               Log In
             </Link>
             <Link
-              href="/signup"
+              href="/register"
               className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-gray-950 transition shadow-lg shadow-emerald-500/20 whitespace-nowrap"
             >
               Sign Up
@@ -59,7 +59,7 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-xs sm:max-w-none">
           <Link
-            href="/signup"
+            href="/register"
             className="w-full sm:w-auto px-6 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20"
           >
             Sign Up &rarr;
