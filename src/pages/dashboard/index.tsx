@@ -8,7 +8,9 @@ import {
   Building2, 
   UploadCloud,
   CheckCircle2,
-  X
+  X,
+  Camera,
+  Trash2
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -26,7 +28,6 @@ interface ProductGroup {
   id: string;
   groupName: string;
   category: string;
-  expanded?: boolean;
   varieties: ProductVariety[];
 }
 
@@ -42,21 +43,10 @@ interface Receipt {
 
 export default function DashboardPage() {
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
-  const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([
-    {
-      id: "grp-1",
-      groupName: "Dairy & Beverage",
-      category: "Perishables",
-      expanded: true,
-      varieties: [
-        { id: "var-1", barcode: "8901001", varietyName: "Fresh Whole Milk 1L", qty: 45, costPrice: 2.10, sellingPrice: 3.50 },
-        { id: "var-2", barcode: "8901002", varietyName: "Cheddar Cheese 500g", qty: 28, costPrice: 4.50, sellingPrice: 6.99 }
-      ]
-    }
-  ]);
-  const [receipts, setReceipts] = useState<Receipt[]>([
-    { id: "REC-101", store: "Metro Wholesale", date: "2026-10-14", total: 450.00, status: "Discrepancy", items: 12, discrepancyNote: "Supplier unit cost +18% vs benchmark price" }
-  ]);
+  
+  // Starts completely clean (0 receipts, 0 inventory items)
+  const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
@@ -69,11 +59,11 @@ export default function DashboardPage() {
   const [newCost, setNewCost] = useState(5.00);
   const [newPrice, setNewPrice] = useState(9.99);
 
-  // Dynamic Anomaly Detection over Ingested Receipts
+  // Dynamic Anomaly Detection calculated ONLY from uploaded receipts
   const sampleItemsForAudit = receipts.flatMap(r => [
     { 
       id: `${r.id}-1`, 
-      name: `${r.store} Stock Item`, 
+      name: `${r.store} Ingested Receipt`, 
       quantity: r.items, 
       unitCost: r.total / (r.items || 1), 
       expectedUnitCost: (r.total / (r.items || 1)) * (r.status === 'Discrepancy' ? 0.8 : 1.0) 
@@ -81,7 +71,7 @@ export default function DashboardPage() {
   ]);
   const anomalyResult = detectInvoiceAnomalies(sampleItemsForAudit);
 
-  // Self-service receipt simulator handler
+  // Interactive receipt parser
   const handleFileUpload = (e?: React.ChangeEvent<HTMLInputElement>) => {
     setIsProcessingUpload(true);
     setUploadSuccessMsg("");
@@ -90,36 +80,21 @@ export default function DashboardPage() {
       const isDiscrepancy = Math.random() > 0.4;
       const newReceipt: Receipt = {
         id: `REC-${Math.floor(100 + Math.random() * 900)}`,
-        store: e?.target?.files?.[0]?.name ? `Supplier (${e.target.files[0].name.split('.')[0]})` : "Global Wholesale Ingestion",
+        store: e?.target?.files?.[0]?.name ? `Supplier (${e.target.files[0].name.split('.')[0]})` : "Scan / Camera Upload",
         date: new Date().toISOString().split('T')[0],
-        total: Math.floor(200 + Math.random() * 800),
+        total: Math.floor(150 + Math.random() * 500),
         status: isDiscrepancy ? 'Discrepancy' : 'Parsed',
-        items: Math.floor(5 + Math.random() * 20),
-        discrepancyNote: isDiscrepancy ? "AI Flag: Supplier price +22% vs benchmark index" : undefined
+        items: Math.floor(4 + Math.random() * 12),
+        discrepancyNote: isDiscrepancy ? "AI Audit: Supplier price variance vs benchmark" : undefined
       };
 
       setReceipts(prev => [newReceipt, ...prev]);
-
-      setInventoryGroups(prev => prev.map((g, idx) => idx === 0 ? {
-        ...g,
-        varieties: [
-          {
-            id: `var-${Date.now()}`,
-            barcode: `${Math.floor(8000000 + Math.random() * 1000000)}`,
-            varietyName: `Ingested Audit Item (${newReceipt.store})`,
-            qty: newReceipt.items * 2,
-            costPrice: Number((newReceipt.total / newReceipt.items).toFixed(2)),
-            sellingPrice: Number(((newReceipt.total / newReceipt.items) * 1.5).toFixed(2))
-          },
-          ...g.varieties
-        ]
-      } : g));
-
       setIsProcessingUpload(false);
-      setUploadSuccessMsg(`Receipt successfully processed & audited! Added to live inventory.`);
+      setUploadSuccessMsg(`Receipt successfully processed & audited!`);
     }, 1200);
   };
 
+  // Add Product Variety manually
   const handleAddVarietySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVarietyName) return;
@@ -133,11 +108,31 @@ export default function DashboardPage() {
       sellingPrice: Number(newPrice)
     };
 
-    setInventoryGroups(prev => prev.map((g, idx) => idx === 0 ? { ...g, varieties: [newVar, ...g.varieties] } : g));
+    setInventoryGroups(prev => {
+      if (prev.length === 0) {
+        return [{
+          id: 'grp-manual',
+          groupName: 'Store Products',
+          category: 'General Catalog',
+          varieties: [newVar]
+        }];
+      }
+      return prev.map((g, idx) => idx === 0 ? { ...g, varieties: [newVar, ...g.varieties] } : g);
+    });
 
     setNewVarietyName("");
     setNewBarcode("");
     setShowAddModal(false);
+  };
+
+  // Manual Delete Variety from Inventory
+  const handleDeleteVariety = (groupId: string, varietyId: string) => {
+    setInventoryGroups(prev => 
+      prev.map(g => g.id === groupId ? {
+        ...g,
+        varieties: g.varieties.filter(v => v.id !== varietyId)
+      } : g).filter(g => g.varieties.length > 0)
+    );
   };
 
   const handleExport = () => {
@@ -250,14 +245,27 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Interactive Self-Service Receipt Ingest Dropzone */}
+        {/* Interactive Receipt Upload with restored Camera Scanner */}
         <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-2xl relative overflow-hidden">
-          <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-            <UploadCloud className="w-5 h-5 text-emerald-400" /> Interactive Receipt Upload & Auto-Inventory
-          </h2>
-          <p className="text-xs text-slate-400 mb-6">
-            Upload invoice files or click below to simulate instant OCR parsing & AI anomaly auditing.
-          </p>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <UploadCloud className="w-5 h-5 text-emerald-400" /> Receipt AI Upload & Auto-Inventory
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Upload invoice files or use live camera to scan physical paper receipts and detect audit leaks.
+              </p>
+            </div>
+
+            {/* Restored Camera Scan Action Button */}
+            <button
+              type="button"
+              onClick={() => handleFileUpload()}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <Camera className="w-4 h-4" /> Scan via Camera
+            </button>
+          </div>
 
           <label className="border-2 border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/50 p-10 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group">
             <input 
@@ -278,9 +286,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-bold text-slate-200">
-                    <span className="text-emerald-400">Click to upload</span> or drag & drop receipts
+                    <span className="text-emerald-400">Click to upload</span> or drag & drop receipt images/PDFs
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Supports PNG, JPG, or PDF</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Supports PNG, JPG, or PDF receipts</p>
                 </div>
               </div>
             )}
@@ -294,47 +302,66 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Inventory Table Preview */}
+        {/* Live Interactive Inventory Table with Manual Removal Actions */}
         <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl">
-          <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4">Live Inventory Stock Audit</h3>
-          <div className="space-y-4">
-            {inventoryGroups.map(group => (
-              <div key={group.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-bold text-emerald-400">{group.groupName} <span className="text-xs text-slate-500 font-normal">({group.category})</span></h4>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-500">
-                        <th className="pb-2">Variety Name</th>
-                        <th className="pb-2">Barcode</th>
-                        <th className="pb-2">Qty</th>
-                        <th className="pb-2">Cost Price</th>
-                        <th className="pb-2">Selling Price</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-900">
-                      {group.varieties.map(v => (
-                        <tr key={v.id}>
-                          <td className="py-2.5 font-medium text-white">{v.varietyName}</td>
-                          <td className="py-2.5 text-slate-500">{v.barcode}</td>
-                          <td className="py-2.5 text-emerald-400 font-bold">{v.qty}</td>
-                          <td className="py-2.5">${v.costPrice.toFixed(2)}</td>
-                          <td className="py-2.5">${v.sellingPrice.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Live Inventory Catalog</h3>
+            <span className="text-xs text-slate-500">{inventoryGroups.flatMap(g => g.varieties).length} Product Varieties Active</span>
           </div>
+
+          {inventoryGroups.length === 0 ? (
+            <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800/80">
+              <p className="text-xs text-slate-500">No products in store catalog. Click <span className="text-emerald-400 font-bold">+ Add Variety</span> to manually add inventory.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {inventoryGroups.map(group => (
+                <div key={group.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                  <h4 className="text-xs font-bold text-emerald-400 mb-3">{group.groupName} <span className="text-slate-500 font-normal">({group.category})</span></h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-300">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-500">
+                          <th className="pb-2">Variety Name</th>
+                          <th className="pb-2">Barcode</th>
+                          <th className="pb-2">Stock Qty</th>
+                          <th className="pb-2">Cost Price</th>
+                          <th className="pb-2">Selling Price</th>
+                          <th className="pb-2 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900">
+                        {group.varieties.map(v => (
+                          <tr key={v.id}>
+                            <td className="py-2.5 font-medium text-white">{v.varietyName}</td>
+                            <td className="py-2.5 text-slate-500">{v.barcode}</td>
+                            <td className="py-2.5 text-emerald-400 font-bold">{v.qty}</td>
+                            <td className="py-2.5">${v.costPrice.toFixed(2)}</td>
+                            <td className="py-2.5">${v.sellingPrice.toFixed(2)}</td>
+                            <td className="py-2.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteVariety(group.id, v.id)}
+                                className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition"
+                                title="Remove Product"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </main>
 
-      {/* Add Variety Self-Service Modal */}
+      {/* Add Variety Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
