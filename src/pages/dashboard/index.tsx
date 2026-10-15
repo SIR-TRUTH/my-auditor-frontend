@@ -313,6 +313,9 @@ export default function DashboardPage() {
             >
               <Plus className="w-4 h-4" /> Add Variety
             </button>
+            <button onClick={handleExport} className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5">
+              <FileText className="w-4 h-4" /> Export Report
+            </button>
           </div>
         </div>
       </header>
