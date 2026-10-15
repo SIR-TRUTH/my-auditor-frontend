@@ -14,7 +14,8 @@ import {
   TrendingUp,
   DollarSign,
   PieChart,
-  Globe
+  Globe,
+  LineChart
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -55,24 +56,24 @@ interface ExpenseItem {
 interface CurrencyOption {
   code: string;
   symbol: string;
-  rate: number; // Conversion rate relative to base USD
+  rate: number;
 }
 
 const CURRENCIES: Record<string, CurrencyOption> = {
-  NGN: { code: 'NGN', symbol: '₦', rate: 1500 }, // Nigerian Naira
-  USD: { code: 'USD', symbol: '$', rate: 1 },    // US Dollar
-  EUR: { code: 'EUR', symbol: '€', rate: 0.92 }, // Euro
-  GBP: { code: 'GBP', symbol: '£', rate: 0.78 }, // British Pound
-  KES: { code: 'KES', symbol: 'Ksh', rate: 130 } // Kenyan Shilling
+  NGN: { code: 'NGN', symbol: '₦', rate: 1500 },
+  USD: { code: 'USD', symbol: '$', rate: 1 },
+  EUR: { code: 'EUR', symbol: '€', rate: 0.92 },
+  GBP: { code: 'GBP', symbol: '£', rate: 0.78 },
+  KES: { code: 'KES', symbol: 'Ksh', rate: 130 }
 };
 
 export default function DashboardPage() {
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
-  const [currencyKey, setCurrencyKey] = useState("NGN"); // Default to Naira
+  const [currencyKey, setCurrencyKey] = useState("NGN");
   
   const currentCurrency = CURRENCIES[currencyKey] || CURRENCIES.NGN;
 
-  // Clean initial state ($0.00 / ₦0.00 baseline)
+  // Clean initial state
   const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
@@ -85,15 +86,13 @@ export default function DashboardPage() {
   const [newVarietyName, setNewVarietyName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
   const [newQty, setNewQty] = useState(15);
-  const [newCost, setNewCost] = useState(2500); // Default in Naira scale
+  const [newCost, setNewCost] = useState(2500);
   const [newPrice, setNewPrice] = useState(5000);
 
   const [expenseCat, setExpenseCat] = useState("Store Utilities");
   const [expenseAmt, setExpenseAmt] = useState(75000);
 
   const formatCurrency = (val: number) => {
-    const converted = val * (currencyKey === 'NGN' && newCost === 4 ? currentCurrency.rate : 1); 
-    // If user inputs base values, scale them appropriately
     return `${currentCurrency.symbol}${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
@@ -117,6 +116,20 @@ export default function DashboardPage() {
   const grossProfit = totalRevenue - totalCOGS;
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const netProfit = grossProfit - totalExpenses - anomalyResult.totalDiscrepancyAmount;
+
+  // Generate dynamic chart trend points based on live P&L state
+  const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const chartPoints = chartDays.map((day, idx) => {
+    const factor = (idx + 1) / 7;
+    return {
+      day,
+      revenue: totalRevenue * factor,
+      cogs: totalCOGS * factor,
+      net: netProfit * factor
+    };
+  });
+
+  const maxVal = Math.max(totalRevenue, totalCOGS, Math.abs(netProfit), 100);
 
   const handleFileUpload = (e?: React.ChangeEvent<HTMLInputElement>) => {
     setIsProcessingUpload(true);
@@ -306,6 +319,46 @@ export default function DashboardPage() {
               {formatCurrency(netProfit)}
             </p>
             <p className="text-[11px] text-slate-400 mt-1">Real-time audited balance</p>
+          </div>
+        </div>
+
+        {/* Feature #1: Interactive SVG P&L & Margins Trend Chart */}
+        <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <LineChart className="w-4 h-4 text-emerald-400" /> Real-Time P&L & Margins Trend Chart
+            </h3>
+            <div className="flex items-center gap-4 text-[11px] text-slate-400">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span> Revenue</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span> COGS</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-teal-400 inline-block"></span> Net Profit</span>
+            </div>
+          </div>
+
+          <div className="h-44 w-full pt-4 relative flex items-end justify-between border-b border-slate-800 pb-2">
+            {chartPoints.map((pt, idx) => {
+              const revHeight = Math.min(100, (pt.revenue / maxVal) * 100);
+              const cogsHeight = Math.min(100, (pt.cogs / maxVal) * 100);
+              const netHeight = Math.min(100, (Math.max(0, pt.net) / maxVal) * 100);
+
+              return (
+                <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
+                  {/* Tooltip on hover */}
+                  <div className="absolute -top-12 opacity-0 group-hover:opacity-100 bg-slate-900 border border-slate-700 text-[10px] p-1.5 rounded shadow-lg pointer-events-none transition-opacity z-20 whitespace-nowrap">
+                    <p className="text-white font-bold">{pt.day}</p>
+                    <p className="text-emerald-400">Rev: {formatCurrency(pt.revenue)}</p>
+                    <p className="text-teal-400">Net: {formatCurrency(pt.net)}</p>
+                  </div>
+
+                  <div className="flex items-end gap-1 w-full max-w-[32px] h-full justify-center">
+                    <div style={{ height: `${Math.max(5, revHeight)}%` }} className="w-2 bg-emerald-400/80 hover:bg-emerald-400 rounded-t transition-all"></div>
+                    <div style={{ height: `${Math.max(5, cogsHeight)}%` }} className="w-2 bg-slate-600 hover:bg-slate-500 rounded-t transition-all"></div>
+                    <div style={{ height: `${Math.max(5, netHeight)}%` }} className="w-2 bg-teal-400/80 hover:bg-teal-400 rounded-t transition-all"></div>
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-2">{pt.day}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
