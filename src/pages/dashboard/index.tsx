@@ -13,7 +13,8 @@ import {
   Trash2,
   TrendingUp,
   DollarSign,
-  PieChart
+  PieChart,
+  Globe
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -51,10 +52,27 @@ interface ExpenseItem {
   date: string;
 }
 
+interface CurrencyOption {
+  code: string;
+  symbol: string;
+  rate: number; // Conversion rate relative to base USD
+}
+
+const CURRENCIES: Record<string, CurrencyOption> = {
+  NGN: { code: 'NGN', symbol: '₦', rate: 1500 }, // Nigerian Naira
+  USD: { code: 'USD', symbol: '$', rate: 1 },    // US Dollar
+  EUR: { code: 'EUR', symbol: '€', rate: 0.92 }, // Euro
+  GBP: { code: 'GBP', symbol: '£', rate: 0.78 }, // British Pound
+  KES: { code: 'KES', symbol: 'Ksh', rate: 130 } // Kenyan Shilling
+};
+
 export default function DashboardPage() {
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
+  const [currencyKey, setCurrencyKey] = useState("NGN"); // Default to Naira
   
-  // Clean initial state ($0.00 baseline)
+  const currentCurrency = CURRENCIES[currencyKey] || CURRENCIES.NGN;
+
+  // Clean initial state ($0.00 / ₦0.00 baseline)
   const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
@@ -67,11 +85,17 @@ export default function DashboardPage() {
   const [newVarietyName, setNewVarietyName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
   const [newQty, setNewQty] = useState(15);
-  const [newCost, setNewCost] = useState(4.00);
-  const [newPrice, setNewPrice] = useState(8.50);
+  const [newCost, setNewCost] = useState(2500); // Default in Naira scale
+  const [newPrice, setNewPrice] = useState(5000);
 
   const [expenseCat, setExpenseCat] = useState("Store Utilities");
-  const [expenseAmt, setExpenseAmt] = useState(150);
+  const [expenseAmt, setExpenseAmt] = useState(75000);
+
+  const formatCurrency = (val: number) => {
+    const converted = val * (currencyKey === 'NGN' && newCost === 4 ? currentCurrency.rate : 1); 
+    // If user inputs base values, scale them appropriately
+    return `${currentCurrency.symbol}${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   const sampleItemsForAudit = receipts.flatMap(r => [
     { 
@@ -100,11 +124,12 @@ export default function DashboardPage() {
 
     setTimeout(() => {
       const isDiscrepancy = Math.random() > 0.4;
+      const baseMultiplier = currencyKey === 'NGN' ? 1000 : 1;
       const newReceipt: Receipt = {
         id: `REC-${Math.floor(100 + Math.random() * 900)}`,
         store: e?.target?.files?.[0]?.name ? `Supplier (${e.target.files[0].name.split('.')[0]})` : "Camera Audit Scan",
         date: new Date().toISOString().split('T')[0],
-        total: Math.floor(250 + Math.random() * 600),
+        total: Math.floor(150 + Math.random() * 400) * baseMultiplier,
         status: isDiscrepancy ? 'Discrepancy' : 'Parsed',
         items: Math.floor(5 + Math.random() * 15),
         discrepancyNote: isDiscrepancy ? "AI Audit: Supplier unit cost spike detected" : undefined
@@ -212,6 +237,22 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center flex-wrap justify-end gap-2 w-full sm:w-auto">
+            {/* Currency Switcher */}
+            <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1">
+              <Globe className="w-3.5 h-3.5 text-emerald-400" />
+              <select
+                value={currencyKey}
+                onChange={(e) => setCurrencyKey(e.target.value)}
+                className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer font-bold"
+              >
+                <option value="NGN" className="bg-slate-900">₦ NGN</option>
+                <option value="USD" className="bg-slate-900">$ USD</option>
+                <option value="EUR" className="bg-slate-900">€ EUR</option>
+                <option value="GBP" className="bg-slate-900">£ GBP</option>
+                <option value="KES" className="bg-slate-900">Ksh KES</option>
+              </select>
+            </div>
+
             <button
               type="button"
               onClick={() => setShowExpenseModal(true)}
@@ -246,23 +287,23 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Potential Revenue</p>
-            <p className="text-2xl sm:text-3xl font-black text-white mt-1">${totalRevenue.toFixed(2)}</p>
-            <p className="text-[11px] text-emerald-400 mt-1">COGS: ${totalCOGS.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-white mt-1">{formatCurrency(totalRevenue)}</p>
+            <p className="text-[11px] text-emerald-400 mt-1">COGS: {formatCurrency(totalCOGS)}</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Profit</p>
-            <p className="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">${grossProfit.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">{formatCurrency(grossProfit)}</p>
             <p className="text-[11px] text-slate-400 mt-1">Margin: {totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : 0}%</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Expenses & Leakage</p>
-            <p className="text-2xl sm:text-3xl font-black text-rose-400 mt-1">${(totalExpenses + anomalyResult.totalDiscrepancyAmount).toFixed(2)}</p>
-            <p className="text-[11px] text-slate-400 mt-1">Expenses: ${totalExpenses.toFixed(2)} • Leakage: ${anomalyResult.totalDiscrepancyAmount.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-rose-400 mt-1">{formatCurrency(totalExpenses + anomalyResult.totalDiscrepancyAmount)}</p>
+            <p className="text-[11px] text-slate-400 mt-1">Expenses: {formatCurrency(totalExpenses)} • Leakage: {formatCurrency(anomalyResult.totalDiscrepancyAmount)}</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl border-l-4 border-l-emerald-500">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Live Net Profit</p>
             <p className={`text-2xl sm:text-3xl font-black mt-1 ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              ${netProfit.toFixed(2)}
+              {formatCurrency(netProfit)}
             </p>
             <p className="text-[11px] text-slate-400 mt-1">Real-time audited balance</p>
           </div>
@@ -284,7 +325,7 @@ export default function DashboardPage() {
                   {topPerformers.map(item => (
                     <div key={item.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
                       <span className="font-medium text-white truncate max-w-[180px]">{item.varietyName}</span>
-                      <span className="text-emerald-400 font-bold shrink-0">+${(item.sellingPrice - item.costPrice).toFixed(2)} unit margin</span>
+                      <span className="text-emerald-400 font-bold shrink-0">+{formatCurrency(item.sellingPrice - item.costPrice)} unit margin</span>
                     </div>
                   ))}
                 </div>
@@ -300,7 +341,7 @@ export default function DashboardPage() {
                   {underperformers.map(item => (
                     <div key={item.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
                       <span className="font-medium text-white truncate max-w-[180px]">{item.varietyName}</span>
-                      <span className="text-rose-400 font-bold shrink-0">+${(item.sellingPrice - item.costPrice).toFixed(2)} unit margin</span>
+                      <span className="text-rose-400 font-bold shrink-0">+{formatCurrency(item.sellingPrice - item.costPrice)} unit margin</span>
                     </div>
                   ))}
                 </div>
@@ -325,7 +366,7 @@ export default function DashboardPage() {
                       <p className="font-medium text-white">{exp.category}</p>
                       <p className="text-[10px] text-slate-500">Logged on {exp.date}</p>
                     </div>
-                    <span className="text-rose-400 font-bold">-${exp.amount.toFixed(2)}</span>
+                    <span className="text-rose-400 font-bold">-{formatCurrency(exp.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -333,7 +374,7 @@ export default function DashboardPage() {
 
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
               <span className="text-slate-400 font-medium">Total Audited Discrepancies</span>
-              <span className="text-rose-400 font-bold">-${anomalyResult.totalDiscrepancyAmount.toFixed(2)}</span>
+              <span className="text-rose-400 font-bold">-{formatCurrency(anomalyResult.totalDiscrepancyAmount)}</span>
             </div>
           </div>
         </div>
@@ -428,8 +469,8 @@ export default function DashboardPage() {
                             <td className="py-2.5 font-medium text-white">{v.varietyName}</td>
                             <td className="py-2.5 text-slate-500">{v.barcode}</td>
                             <td className="py-2.5 text-emerald-400 font-bold">{v.qty}</td>
-                            <td className="py-2.5">${v.costPrice.toFixed(2)}</td>
-                            <td className="py-2.5">${v.sellingPrice.toFixed(2)}</td>
+                            <td className="py-2.5">{formatCurrency(v.costPrice)}</td>
+                            <td className="py-2.5">{formatCurrency(v.sellingPrice)}</td>
                             <td className="py-2.5 text-right">
                               <button
                                 type="button"
@@ -500,7 +541,7 @@ export default function DashboardPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Cost Price ($)</label>
+                  <label className="text-xs text-slate-400 block mb-1">Cost Price ({currentCurrency.symbol})</label>
                   <input 
                     type="number" 
                     step="0.01" 
@@ -510,7 +551,7 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Selling Price ($)</label>
+                  <label className="text-xs text-slate-400 block mb-1">Selling Price ({currentCurrency.symbol})</label>
                   <input 
                     type="number" 
                     step="0.01" 
@@ -566,7 +607,7 @@ export default function DashboardPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Amount ($)</label>
+                <label className="text-xs text-slate-400 block mb-1">Amount ({currentCurrency.symbol})</label>
                 <input 
                   type="number" 
                   step="0.01" 
