@@ -262,10 +262,33 @@ export default function DashboardPage() {
     (groupSum, g) => groupSum + g.varieties.reduce((vSum, v) => vSum + v.qty, 0), 0
   );
 
-  const flaggedDiscrepancies = receipts.filter(r => r.status === 'Discrepancy');
+  const flaggedDiscrepancies = receipts.filter(r => r.status === "Discrepancy");
+
+  // Run AI Anomaly Detection on sample ingested items
+  const anomalyResult = detectInvoiceAnomalies([
+    { id: "1", name: "Sugar 50kg Bag", quantity: 10, unitCost: 45.0, expectedUnitCost: 35.0 },
+    { id: "2", name: "Cooking Oil 5L", quantity: 5, unitCost: 18.0, expectedUnitCost: 18.0 },
+    { id: "3", name: "Flour 25kg", quantity: 8, unitCost: 28.5, expectedUnitCost: 20.0 }
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {/* AI Anomaly Alert Banner */}
+      {anomalyResult.hasAnomaly && (
+        <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl mx-6 mt-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-400 animate-pulse" />
+            <div>
+              <p className="text-sm font-bold text-rose-300">AI Anomaly Alert: {anomalyResult.flaggedItems.length} Supplier Price Spikes Detected</p>
+              <p className="text-xs text-rose-400/80">Total Discrepancy Amount: ${anomalyResult.totalDiscrepancyAmount.toFixed(2)} vs Historical Supplier Averages</p>
+            </div>
+          </div>
+          <button onClick={() => setShowDiscrepancyModal(true)} className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold rounded-lg border border-rose-500/40 transition">
+            Review Flagged Items
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
