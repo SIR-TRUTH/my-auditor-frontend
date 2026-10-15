@@ -309,6 +309,56 @@ export default function DashboardPage() {
     });
   };
 
+  // PDF Executive Report Generator (Print Window)
+  const handleExportPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>MY-AUDITOR Executive Audit Report - ${selectedBranch}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; color: #111; }
+            h1 { color: #059669; margin-bottom: 5px; }
+            .meta { font-size: 13px; color: #555; margin-bottom: 25px; }
+            .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
+            .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #f9fafb; }
+            .card h3 { margin: 0 0 5px 0; font-size: 12px; color: #666; text-transform: uppercase; }
+            .card p { margin: 0; font-size: 20px; font-weight: bold; color: #111; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h1>MY-AUDITOR Executive Audit Summary</h1>
+          <div class="meta">
+            <strong>Branch:</strong> ${selectedBranch} | <strong>Date:</strong> ${new Date().toLocaleDateString()} | <strong>Currency:</strong> ${currentCurrency.code}
+          </div>
+          
+          <div class="grid">
+            <div class="card"><h3>Total Revenue</h3><p>${formatCurrency(totalRevenue)}</p></div>
+            <div class="card"><h3>Gross Profit</h3><p>${formatCurrency(grossProfit)}</p></div>
+            <div class="card"><h3>Total Expenses & Losses</h3><p>${formatCurrency(totalExpenses + totalShrinkageLoss + anomalyResult.totalDiscrepancyAmount)}</p></div>
+            <div class="card"><h3>Net Audited Profit</h3><p style="color: ${netProfit >= 0 ? '#059669' : '#dc2626'}">${formatCurrency(netProfit)}</p></div>
+          </div>
+
+          <h3>Active Suppliers & Risk Directory</h3>
+          <table>
+            <tr><th>Supplier Name</th><th>Invoices Ingested</th><th>Flagged Anomalies</th><th>Total Spend</th></tr>
+            ${supplierList.length === 0 ? '<tr><td colspan="4">No suppliers logged yet.</td></tr>' : supplierList.map(s => `
+              <tr><td>${s.name}</td><td>${s.total}</td><td>${s.flagged}</td><td>${formatCurrency(s.spend)}</td></tr>
+            `).join('')}
+          </table>
+
+          <script>window.print();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const allVarieties = inventoryGroups.flatMap(g => g.varieties);
   const sortedVarieties = [...allVarieties].sort((a, b) => (b.sellingPrice - b.costPrice) - (a.sellingPrice - a.costPrice));
   const topPerformers = sortedVarieties.slice(0, 3);
@@ -392,10 +442,11 @@ export default function DashboardPage() {
 
             <button
               type="button"
-              onClick={handleExport}
+              onClick={handleExportPDF}
               className="px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Export Executive PDF Report"
             >
-              <FileText className="w-3.5 h-3.5" /> Export
+              <FileText className="w-3.5 h-3.5" /> PDF Report
             </button>
           </div>
         </div>
@@ -498,7 +549,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Feature #2: Supplier Risk & Price Benchmark Directory */}
+        {/* Supplier Risk & Price Benchmark Directory */}
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
