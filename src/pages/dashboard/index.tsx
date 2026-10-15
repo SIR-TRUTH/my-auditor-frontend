@@ -10,7 +10,11 @@ import {
   CheckCircle2,
   X,
   Camera,
-  Trash2
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  PieChart
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -41,23 +45,39 @@ interface Receipt {
   discrepancyNote?: string;
 }
 
+interface ExpenseItem {
+  id: string;
+  category: string;
+  amount: number;
+  date: string;
+}
+
 export default function DashboardPage() {
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
   
-  // Clean initial state (0 receipts, 0 inventory items)
+  // Clean initial states
   const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseItem[]>([
+    { id: 'exp-1', category: 'Logistics & Transport', amount: 350.00, date: '2026-10-14' },
+    { id: 'exp-2', category: 'Store Utilities', amount: 220.00, date: '2026-10-12' }
+  ]);
   
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState("");
 
-  // Form State for Adding Variety
+  // New Variety Form State
   const [newVarietyName, setNewVarietyName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
-  const [newQty, setNewQty] = useState(10);
-  const [newCost, setNewCost] = useState(5.00);
-  const [newPrice, setNewPrice] = useState(9.99);
+  const [newQty, setNewQty] = useState(15);
+  const [newCost, setNewCost] = useState(4.00);
+  const [newPrice, setNewPrice] = useState(8.50);
+
+  // New Expense Form State
+  const [expenseCat, setExpenseCat] = useState("Store Utilities");
+  const [expenseAmt, setExpenseAmt] = useState(150);
 
   // Dynamic Audit calculation based strictly on uploaded receipts
   const sampleItemsForAudit = receipts.flatMap(r => [
@@ -71,6 +91,17 @@ export default function DashboardPage() {
   ]);
   const anomalyResult = detectInvoiceAnomalies(sampleItemsForAudit);
 
+  // Financial Calculations
+  const totalRevenue = inventoryGroups.reduce(
+    (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.sellingPrice), 0), 0
+  );
+  const totalCOGS = inventoryGroups.reduce(
+    (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.costPrice), 0), 0
+  );
+  const grossProfit = totalRevenue - totalCOGS;
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const netProfit = grossProfit - totalExpenses - anomalyResult.totalDiscrepancyAmount;
+
   // Interactive Receipt Handler
   const handleFileUpload = (e?: React.ChangeEvent<HTMLInputElement>) => {
     setIsProcessingUpload(true);
@@ -82,15 +113,15 @@ export default function DashboardPage() {
         id: `REC-${Math.floor(100 + Math.random() * 900)}`,
         store: e?.target?.files?.[0]?.name ? `Supplier (${e.target.files[0].name.split('.')[0]})` : "Camera Audit Scan",
         date: new Date().toISOString().split('T')[0],
-        total: Math.floor(150 + Math.random() * 500),
+        total: Math.floor(250 + Math.random() * 600),
         status: isDiscrepancy ? 'Discrepancy' : 'Parsed',
-        items: Math.floor(4 + Math.random() * 12),
-        discrepancyNote: isDiscrepancy ? "AI Audit: Supplier price variance detected" : undefined
+        items: Math.floor(5 + Math.random() * 15),
+        discrepancyNote: isDiscrepancy ? "AI Audit: Supplier unit cost +19% spike detected" : undefined
       };
 
       setReceipts(prev => [newReceipt, ...prev]);
       setIsProcessingUpload(false);
-      setUploadSuccessMsg("Receipt successfully parsed & audited!");
+      setUploadSuccessMsg("Receipt successfully parsed, audited & factored into live P&L!");
     }, 1200);
   };
 
@@ -113,7 +144,7 @@ export default function DashboardPage() {
         return [{
           id: 'grp-1',
           groupName: 'Store Catalog',
-          category: 'General',
+          category: 'Retail General',
           varieties: [newVar]
         }];
       }
@@ -125,7 +156,20 @@ export default function DashboardPage() {
     setShowAddModal(false);
   };
 
-  // Delete Item from Live Inventory Table
+  // Add Expense Handler
+  const handleAddExpenseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newExp: ExpenseItem = {
+      id: `exp-${Date.now()}`,
+      category: expenseCat,
+      amount: Number(expenseAmt),
+      date: new Date().toISOString().split('T')[0]
+    };
+    setExpenses([newExp, ...expenses]);
+    setShowExpenseModal(false);
+  };
+
+  // Delete Item from Inventory
   const handleDeleteVariety = (groupId: string, varietyId: string) => {
     setInventoryGroups(prev => 
       prev.map(g => g.id === groupId ? {
@@ -141,15 +185,17 @@ export default function DashboardPage() {
       branchName: selectedBranch,
       dateGenerated: new Date().toLocaleDateString(),
       totalReceipts: receipts.length,
-      totalUnits: totalUnitsInStock,
-      totalDiscrepancies: flaggedDiscrepancies.length,
+      totalUnits: inventoryGroups.reduce((s, g) => s + g.varieties.reduce((vs, v) => vs + v.qty, 0), 0),
+      totalDiscrepancies: receipts.filter(r => r.status === 'Discrepancy').length,
       discrepancyAmount: anomalyResult.totalDiscrepancyAmount
     });
   };
 
-  const totalUnitsInStock = inventoryGroups.reduce(
-    (groupSum, g) => groupSum + g.varieties.reduce((vSum, v) => vSum + v.qty, 0), 0
-  );
+  // Categorize Best vs Underperforming items
+  const allVarieties = inventoryGroups.flatMap(g => g.varieties);
+  const sortedVarieties = [...allVarieties].sort((a, b) => (b.sellingPrice - b.costPrice) - (a.sellingPrice - a.costPrice));
+  const topPerformers = sortedVarieties.slice(0, 3);
+  const underperformers = sortedVarieties.slice(-3).reverse();
 
   const flaggedDiscrepancies = receipts.filter(r => r.status === 'Discrepancy');
 
@@ -186,6 +232,14 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              onClick={() => setShowExpenseModal(true)}
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <DollarSign className="w-4 h-4 text-emerald-400" /> Log Expense
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowAddModal(true)}
               className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer z-10"
             >
@@ -214,7 +268,7 @@ export default function DashboardPage() {
                   AI Anomaly Alert: {anomalyResult.flaggedItems.length} Supplier Price Spike(s) Flagged
                 </p>
                 <p className="text-xs text-rose-400/80">
-                  Estimated Leakage: ${anomalyResult.totalDiscrepancyAmount.toFixed(2)} vs Historical Price Benchmarks
+                  Estimated Leakage Deducted from Net Profit: ${anomalyResult.totalDiscrepancyAmount.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -225,23 +279,95 @@ export default function DashboardPage() {
       {/* Main Content Dashboard */}
       <main className="max-w-7xl mx-auto px-6 py-8 w-full flex-1 space-y-8">
         
-        {/* Metric Cards */}
+        {/* Live P&L Financial Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Ingested</p>
-            <p className="text-3xl font-black text-white mt-1">{receipts.length} <span className="text-sm font-normal text-slate-400">Receipts</span></p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Potential Revenue</p>
+            <p className="text-3xl font-black text-white mt-1">${totalRevenue.toFixed(2)}</p>
+            <p className="text-[11px] text-emerald-400 mt-1">COGS: ${totalCOGS.toFixed(2)}</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Live Inventory Stock</p>
-            <p className="text-3xl font-black text-emerald-400 mt-1">{totalUnitsInStock} <span className="text-sm font-normal text-slate-400">Units</span></p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Profit</p>
+            <p className="text-3xl font-black text-emerald-400 mt-1">${grossProfit.toFixed(2)}</p>
+            <p className="text-[11px] text-slate-400 mt-1">Margin: {totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : 0}%</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Product Groups</p>
-            <p className="text-3xl font-black text-white mt-1">{inventoryGroups.length} <span className="text-sm font-normal text-slate-400">Groups</span></p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Expenses & Leakage</p>
+            <p className="text-3xl font-black text-rose-400 mt-1">${(totalExpenses + anomalyResult.totalDiscrepancyAmount).toFixed(2)}</p>
+            <p className="text-[11px] text-slate-400 mt-1">Expenses: ${totalExpenses.toFixed(2)} \vert{} Leakage:${anomalyResult.totalDiscrepancyAmount.toFixed(2)}</p>
           </div>
-          <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Audit Discrepancies</p>
-            <p className="text-3xl font-black text-emerald-400 mt-1">{flaggedDiscrepancies.length} <span className="text-sm font-normal text-slate-400">Flagged</span></p>
+          <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl border-l-4 border-l-emerald-500">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Live Net Profit</p>
+            <p className={`text-3xl font-black mt-1 ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              ${netProfit.toFixed(2)}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">Real-time audited balance</p>
+          </div>
+        </div>
+
+        {/* Performance Insights & Leakage Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Best vs Underperforming */}
+          <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-400" /> Item Performance Analytics
+            </h3>
+
+            <div>
+              <p className="text-xs font-semibold text-emerald-400 mb-2">Top Performing Varieties (Highest Margin)</p>
+              {topPerformers.length === 0 ? (
+                <p className="text-xs text-slate-500">No inventory data available yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {topPerformers.map(item => (
+                    <div key={item.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                      <span className="font-medium text-white">{item.varietyName}</span>
+                      <span className="text-emerald-400 font-bold">+${(item.sellingPrice - item.costPrice).toFixed(2)} unit margin</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <p className="text-xs font-semibold text-rose-400 mb-2">Underperforming / Low Margin Varieties</p>
+              {underperformers.length === 0 ? (
+                <p className="text-xs text-slate-500">No inventory data available yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {underperformers.map(item => (
+                    <div key={item.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                      <span className="font-medium text-white">{item.varietyName}</span>
+                      <span className="text-rose-400 font-bold">+${(item.sellingPrice - item.costPrice).toFixed(2)} unit margin</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Operational Expenses & Audit Log */}
+          <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <PieChart className="w-4 h-4 text-emerald-400" /> Live Operational Expenses
+            </h3>
+            
+            <div className="space-y-2 max-h-56 overflow-y-auto">
+              {expenses.map(exp => (
+                <div key={exp.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                  <div>
+                    <p className="font-medium text-white">{exp.category}</p>
+                    <p className="text-[10px] text-slate-500">Logged on {exp.date}</p>
+                  </div>
+                  <span className="text-rose-400 font-bold">-${exp.amount.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+              <span className="text-slate-400 font-medium">Total Audited Discrepancies</span>
+              <span className="text-rose-400 font-bold">-${anomalyResult.totalDiscrepancyAmount.toFixed(2)}</span>
+            </div>
           </div>
         </div>
 
@@ -253,7 +379,7 @@ export default function DashboardPage() {
                 <UploadCloud className="w-5 h-5 text-emerald-400" /> Receipt AI Upload & Auto-Inventory
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Upload invoice files or use live camera to scan physical paper receipts and detect audit leaks.
+                Upload invoice files or use live camera to scan physical paper receipts and update live P&L.
               </p>
             </div>
 
@@ -276,7 +402,7 @@ export default function DashboardPage() {
             {isProcessingUpload ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-xs text-emerald-400 font-semibold animate-pulse">Processing OCR & auditing supplier benchmarks...</p>
+                <p className="text-xs text-emerald-400 font-semibold animate-pulse">Processing OCR & updating financial P&L...</p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
@@ -305,7 +431,7 @@ export default function DashboardPage() {
         <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Live Inventory Catalog</h3>
-            <span className="text-xs text-slate-500">{inventoryGroups.flatMap(g => g.varieties).length} Varieties Active</span>
+            <span className="text-xs text-slate-500">{allVarieties.length} Varieties Active</span>
           </div>
 
           {inventoryGroups.length === 0 ? (
@@ -440,6 +566,63 @@ export default function DashboardPage() {
                   className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl transition cursor-pointer"
                 >
                   Save Product
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Expense Modal */}
+      {showExpenseModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
+            <button 
+              type="button" 
+              onClick={() => setShowExpenseModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-bold text-white mb-4">Log Operational Expense</h3>
+            <form onSubmit={handleAddExpenseSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Expense Category</label>
+                <select 
+                  value={expenseCat} 
+                  onChange={e => setExpenseCat(e.target.value)} 
+                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="Store Utilities">Store Utilities</option>
+                  <option value="Logistics & Transport">Logistics & Transport</option>
+                  <option value="Staff Payroll">Staff Payroll</option>
+                  <option value="Marketing & Promo">Marketing & Promo</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Amount ($)</label>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  value={expenseAmt} 
+                  onChange={e => setExpenseAmt(Number(e.target.value))} 
+                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowExpenseModal(false)} 
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Save Expense
                 </button>
               </div>
             </form>
