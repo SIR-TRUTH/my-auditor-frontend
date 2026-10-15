@@ -1,3 +1,6 @@
+import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
+import { downloadCSV } from "../../lib/reportExporter";
+import { hasPermission } from "../../lib/rbac";
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
@@ -8,6 +11,17 @@ import {
 import { uploadReceipt } from '../../lib/api';
 
 export default function DashboardPage() {
+  const handleExport = () => {
+    downloadCSV({
+      businessName: "Apex Retail Corp",
+      branchName: "Downtown Flagship",
+      dateGenerated: new Date().toLocaleDateString(),
+      totalReceipts: receipts.length || 48,
+      totalUnits: 1250,
+      totalDiscrepancies: receipts.filter(r => r.status === "Discrepancy").length || 3,
+      discrepancyAmount: 450.00
+    });
+  };
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
