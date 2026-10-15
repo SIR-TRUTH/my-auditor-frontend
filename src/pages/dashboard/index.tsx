@@ -44,7 +44,7 @@ interface Receipt {
 export default function DashboardPage() {
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
   
-  // Starts completely clean (0 receipts, 0 inventory items)
+  // Clean initial state (0 receipts, 0 inventory items)
   const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   
@@ -52,18 +52,18 @@ export default function DashboardPage() {
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState("");
 
-  // New Variety Form State
+  // Form State for Adding Variety
   const [newVarietyName, setNewVarietyName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
   const [newQty, setNewQty] = useState(10);
   const [newCost, setNewCost] = useState(5.00);
   const [newPrice, setNewPrice] = useState(9.99);
 
-  // Dynamic Anomaly Detection calculated ONLY from uploaded receipts
+  // Dynamic Audit calculation based strictly on uploaded receipts
   const sampleItemsForAudit = receipts.flatMap(r => [
     { 
       id: `${r.id}-1`, 
-      name: `${r.store} Ingested Receipt`, 
+      name: `${r.store} Ingested Item`, 
       quantity: r.items, 
       unitCost: r.total / (r.items || 1), 
       expectedUnitCost: (r.total / (r.items || 1)) * (r.status === 'Discrepancy' ? 0.8 : 1.0) 
@@ -71,7 +71,7 @@ export default function DashboardPage() {
   ]);
   const anomalyResult = detectInvoiceAnomalies(sampleItemsForAudit);
 
-  // Interactive receipt parser
+  // Interactive Receipt Handler
   const handleFileUpload = (e?: React.ChangeEvent<HTMLInputElement>) => {
     setIsProcessingUpload(true);
     setUploadSuccessMsg("");
@@ -80,21 +80,21 @@ export default function DashboardPage() {
       const isDiscrepancy = Math.random() > 0.4;
       const newReceipt: Receipt = {
         id: `REC-${Math.floor(100 + Math.random() * 900)}`,
-        store: e?.target?.files?.[0]?.name ? `Supplier (${e.target.files[0].name.split('.')[0]})` : "Scan / Camera Upload",
+        store: e?.target?.files?.[0]?.name ? `Supplier (${e.target.files[0].name.split('.')[0]})` : "Camera Audit Scan",
         date: new Date().toISOString().split('T')[0],
         total: Math.floor(150 + Math.random() * 500),
         status: isDiscrepancy ? 'Discrepancy' : 'Parsed',
         items: Math.floor(4 + Math.random() * 12),
-        discrepancyNote: isDiscrepancy ? "AI Audit: Supplier price variance vs benchmark" : undefined
+        discrepancyNote: isDiscrepancy ? "AI Audit: Supplier price variance detected" : undefined
       };
 
       setReceipts(prev => [newReceipt, ...prev]);
       setIsProcessingUpload(false);
-      setUploadSuccessMsg(`Receipt successfully processed & audited!`);
+      setUploadSuccessMsg("Receipt successfully parsed & audited!");
     }, 1200);
   };
 
-  // Add Product Variety manually
+  // Add Variety Form Handler
   const handleAddVarietySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVarietyName) return;
@@ -111,9 +111,9 @@ export default function DashboardPage() {
     setInventoryGroups(prev => {
       if (prev.length === 0) {
         return [{
-          id: 'grp-manual',
-          groupName: 'Store Products',
-          category: 'General Catalog',
+          id: 'grp-1',
+          groupName: 'Store Catalog',
+          category: 'General',
           varieties: [newVar]
         }];
       }
@@ -125,7 +125,7 @@ export default function DashboardPage() {
     setShowAddModal(false);
   };
 
-  // Manual Delete Variety from Inventory
+  // Delete Item from Live Inventory Table
   const handleDeleteVariety = (groupId: string, varietyId: string) => {
     setInventoryGroups(prev => 
       prev.map(g => g.id === groupId ? {
@@ -225,7 +225,7 @@ export default function DashboardPage() {
       {/* Main Content Dashboard */}
       <main className="max-w-7xl mx-auto px-6 py-8 w-full flex-1 space-y-8">
         
-        {/* KPI Metric Cards */}
+        {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Ingested</p>
@@ -245,7 +245,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Interactive Receipt Upload with restored Camera Scanner */}
+        {/* Upload Zone with Camera Button */}
         <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-2xl relative overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -257,7 +257,6 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Restored Camera Scan Action Button */}
             <button
               type="button"
               onClick={() => handleFileUpload()}
@@ -286,7 +285,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-bold text-slate-200">
-                    <span className="text-emerald-400">Click to upload</span> or drag & drop receipt images/PDFs
+                    <span className="text-emerald-400">Click to upload</span> or drag & drop receipts
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">Supports PNG, JPG, or PDF receipts</p>
                 </div>
@@ -302,11 +301,11 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Live Interactive Inventory Table with Manual Removal Actions */}
+        {/* Live Inventory Catalog Table */}
         <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Live Inventory Catalog</h3>
-            <span className="text-xs text-slate-500">{inventoryGroups.flatMap(g => g.varieties).length} Product Varieties Active</span>
+            <span className="text-xs text-slate-500">{inventoryGroups.flatMap(g => g.varieties).length} Varieties Active</span>
           </div>
 
           {inventoryGroups.length === 0 ? (
