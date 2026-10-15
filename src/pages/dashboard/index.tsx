@@ -17,7 +17,8 @@ import {
   Globe,
   LineChart,
   ShoppingBag,
-  ShieldAlert
+  ShieldAlert,
+  Users
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -108,7 +109,6 @@ export default function DashboardPage() {
   const [expenseCat, setExpenseCat] = useState("Store Utilities");
   const [expenseAmt, setExpenseAmt] = useState(75000);
 
-  // Shrinkage Form State
   const [shrinkName, setShrinkName] = useState("Damaged Stock");
   const [shrinkQty, setShrinkQty] = useState(2);
   const [shrinkCostVal, setShrinkCostVal] = useState(5000);
@@ -129,7 +129,7 @@ export default function DashboardPage() {
   ]);
   const anomalyResult = detectInvoiceAnomalies(sampleItemsForAudit);
 
-  // Financial Calculations including POS sales & Shrinkage losses
+  // Financial Calculations
   const inventoryRevenue = inventoryGroups.reduce(
     (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.sellingPrice), 0), 0
   );
@@ -145,6 +145,26 @@ export default function DashboardPage() {
   const totalShrinkageLoss = shrinkageLogs.reduce((sum, s) => sum + s.totalValue, 0);
   const netProfit = grossProfit - totalExpenses - totalShrinkageLoss - anomalyResult.totalDiscrepancyAmount;
 
+  // Supplier Risk Benchmark Calculations
+  const supplierStats = receipts.reduce((acc, r) => {
+    const name = r.store;
+    if (!acc[name]) {
+      acc[name] = { total: 0, flagged: 0, spend: 0 };
+    }
+    acc[name].total += 1;
+    if (r.status === 'Discrepancy') acc[name].flagged += 1;
+    acc[name].spend += r.total;
+    return acc;
+  }, {} as Record<string, { total: number; flagged: number; spend: number }>);
+
+  const supplierList = Object.entries(supplierStats).map(([name, stat]) => ({
+    name,
+    total: stat.total,
+    flagged: stat.flagged,
+    spend: stat.spend,
+    riskScore: Math.round((stat.flagged / stat.total) * 100)
+  }));
+
   // Chart trend points
   const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const chartPoints = chartDays.map((day, idx) => {
@@ -159,7 +179,6 @@ export default function DashboardPage() {
 
   const maxVal = Math.max(totalRevenue, totalCOGS, Math.abs(netProfit), 100);
 
-  // Simulate POS Sale
   const handleSimulatePOSSale = () => {
     const allVars = inventoryGroups.flatMap(g => g.varieties);
     if (allVars.length === 0) {
@@ -168,7 +187,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // Pick first available item with qty > 0
     const targetItem = allVars.find(v => v.qty > 0);
     if (!targetItem) {
       setPosNotice("All inventory stock is currently out of stock!");
@@ -176,7 +194,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // Deduct 1 quantity from inventory
     setInventoryGroups(prev => prev.map(g => ({
       ...g,
       varieties: g.varieties.map(v => v.id === targetItem.id ? { ...v, qty: Math.max(0, v.qty - 1) } : v)
@@ -196,9 +213,12 @@ export default function DashboardPage() {
     setTimeout(() => {
       const isDiscrepancy = Math.random() > 0.4;
       const baseMultiplier = currencyKey === 'NGN' ? 1000 : 1;
+      const suppliers = ["Metro Wholesale Ltd", "Global FMCG Distributors", "Apex Supply Corp"];
+      const chosenSupplier = suppliers[Math.floor(Math.random() * suppliers.length)];
+
       const newReceipt: Receipt = {
         id: `REC-${Math.floor(100 + Math.random() * 900)}`,
-        store: e?.target?.files?.[0]?.name ? `Supplier (${e.target.files[0].name.split('.')[0]})` : "Camera Audit Scan",
+        store: chosenSupplier,
         date: new Date().toISOString().split('T')[0],
         total: Math.floor(150 + Math.random() * 400) * baseMultiplier,
         status: isDiscrepancy ? 'Discrepancy' : 'Parsed',
@@ -343,7 +363,7 @@ export default function DashboardPage() {
               onClick={handleSimulatePOSSale}
               className="px-3 py-1.5 sm:py-2 bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <ShoppingBag className="w-3.5 h-3.5" /> Simulate POS Sale
+              <ShoppingBag className="w-3.5 h-3.5" /> POS Sale
             </button>
 
             <button
@@ -351,7 +371,7 @@ export default function DashboardPage() {
               onClick={() => setShowShrinkageModal(true)}
               className="px-3 py-1.5 sm:py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <ShieldAlert className="w-3.5 h-3.5" /> Shrinkage / Loss
+              <ShieldAlert className="w-3.5 h-3.5" /> Shrinkage
             </button>
 
             <button
@@ -478,6 +498,48 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Feature #2: Supplier Risk & Price Benchmark Directory */}
+        <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-400" /> Supplier Risk & Price Benchmark Directory
+            </h3>
+            <span className="text-xs text-slate-500">{supplierList.length} Suppliers Tracked</span>
+          </div>
+
+          {supplierList.length === 0 ? (
+            <div className="text-center py-6 bg-slate-950/50 rounded-xl border border-slate-800/80">
+              <p className="text-xs text-slate-500">No supplier data logged yet. Upload or scan invoices to generate vendor risk ratings.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {supplierList.map((sup, idx) => (
+                <div key={idx} className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-white text-xs">{sup.name}</p>
+                      <p className="text-[10px] text-slate-500">{sup.total} Invoices Parsed</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      sup.riskScore > 30 ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    }`}>
+                      {sup.riskScore}% Risk
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-slate-900 flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Total Spend</span>
+                    <span className="text-white font-bold">{formatCurrency(sup.spend)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Flagged Anomalies</span>
+                    <span className="text-rose-400 font-bold">{sup.flagged} Overcharges</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Performance & Shrinkage Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
@@ -525,7 +587,7 @@ export default function DashboardPage() {
             
             {shrinkageLogs.length === 0 ? (
               <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800/80">
-                <p className="text-xs text-slate-500">No shrinkage or theft logged. Click <span className="text-rose-400 font-bold">Shrinkage / Loss</span> above.</p>
+                <p className="text-xs text-slate-500">No shrinkage or theft logged. Click <span className="text-rose-400 font-bold">Shrinkage</span> above.</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-56 overflow-y-auto">
@@ -663,7 +725,7 @@ export default function DashboardPage() {
 
       </main>
 
-      {/* Add Variety Modal */}
+      {/* Modals */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
@@ -750,7 +812,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Log Expense Modal */}
       {showExpenseModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
@@ -807,7 +868,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Shrinkage / Loss Modal */}
       {showShrinkageModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
