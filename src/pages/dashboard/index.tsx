@@ -12,7 +12,6 @@ import {
   Camera,
   Trash2,
   TrendingUp,
-  TrendingDown,
   DollarSign,
   PieChart
 } from 'lucide-react';
@@ -55,31 +54,25 @@ interface ExpenseItem {
 export default function DashboardPage() {
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
   
-  // Clean initial states
+  // Clean initial state ($0.00 baseline)
   const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseItem[]>([
-    { id: 'exp-1', category: 'Logistics & Transport', amount: 350.00, date: '2026-10-14' },
-    { id: 'exp-2', category: 'Store Utilities', amount: 220.00, date: '2026-10-12' }
-  ]);
+  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState("");
 
-  // New Variety Form State
   const [newVarietyName, setNewVarietyName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
   const [newQty, setNewQty] = useState(15);
   const [newCost, setNewCost] = useState(4.00);
   const [newPrice, setNewPrice] = useState(8.50);
 
-  // New Expense Form State
   const [expenseCat, setExpenseCat] = useState("Store Utilities");
   const [expenseAmt, setExpenseAmt] = useState(150);
 
-  // Dynamic Audit calculation based strictly on uploaded receipts
   const sampleItemsForAudit = receipts.flatMap(r => [
     { 
       id: `${r.id}-1`, 
@@ -91,7 +84,6 @@ export default function DashboardPage() {
   ]);
   const anomalyResult = detectInvoiceAnomalies(sampleItemsForAudit);
 
-  // Financial Calculations
   const totalRevenue = inventoryGroups.reduce(
     (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.sellingPrice), 0), 0
   );
@@ -102,7 +94,6 @@ export default function DashboardPage() {
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const netProfit = grossProfit - totalExpenses - anomalyResult.totalDiscrepancyAmount;
 
-  // Interactive Receipt Handler
   const handleFileUpload = (e?: React.ChangeEvent<HTMLInputElement>) => {
     setIsProcessingUpload(true);
     setUploadSuccessMsg("");
@@ -116,7 +107,7 @@ export default function DashboardPage() {
         total: Math.floor(250 + Math.random() * 600),
         status: isDiscrepancy ? 'Discrepancy' : 'Parsed',
         items: Math.floor(5 + Math.random() * 15),
-        discrepancyNote: isDiscrepancy ? "AI Audit: Supplier unit cost +19% spike detected" : undefined
+        discrepancyNote: isDiscrepancy ? "AI Audit: Supplier unit cost spike detected" : undefined
       };
 
       setReceipts(prev => [newReceipt, ...prev]);
@@ -125,7 +116,6 @@ export default function DashboardPage() {
     }, 1200);
   };
 
-  // Add Variety Form Handler
   const handleAddVarietySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVarietyName) return;
@@ -156,7 +146,6 @@ export default function DashboardPage() {
     setShowAddModal(false);
   };
 
-  // Add Expense Handler
   const handleAddExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newExp: ExpenseItem = {
@@ -169,7 +158,6 @@ export default function DashboardPage() {
     setShowExpenseModal(false);
   };
 
-  // Delete Item from Inventory
   const handleDeleteVariety = (groupId: string, varietyId: string) => {
     setInventoryGroups(prev => 
       prev.map(g => g.id === groupId ? {
@@ -191,138 +179,112 @@ export default function DashboardPage() {
     });
   };
 
-  // Categorize Best vs Underperforming items
   const allVarieties = inventoryGroups.flatMap(g => g.varieties);
   const sortedVarieties = [...allVarieties].sort((a, b) => (b.sellingPrice - b.costPrice) - (a.sellingPrice - a.costPrice));
   const topPerformers = sortedVarieties.slice(0, 3);
   const underperformers = sortedVarieties.slice(-3).reverse();
 
-  const flaggedDiscrepancies = receipts.filter(r => r.status === 'Discrepancy');
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Header */}
+      {/* Responsive Header */}
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:h-16 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center justify-between w-full sm:w-auto gap-3">
             <Link href="/" className="flex items-center gap-2">
               <div className="bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20 text-emerald-400">
-                <ShieldCheck className="w-6 h-6" />
+                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="text-xl font-black text-white tracking-wider">MY-AUDITOR</span>
+              <span className="text-lg sm:text-xl font-black text-white tracking-wider">MY-AUDITOR</span>
             </Link>
 
-            <div className="flex items-center gap-2 pl-4 border-l border-slate-800">
-              <Building2 className="w-4 h-4 text-emerald-400" />
+            <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
+              <Building2 className="w-4 h-4 text-emerald-400 hidden sm:block" />
               <select 
                 value={selectedBranch}
                 onChange={(e) => setSelectedBranch(e.target.value)}
-                className="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:border-emerald-500"
+                className="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-500"
               >
                 <option value="Downtown Flagship">Downtown Flagship</option>
                 <option value="Westside Mall">Westside Mall</option>
                 <option value="Eastside Hub">Eastside Hub</option>
               </select>
-              <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                ADMIN
-              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center flex-wrap justify-end gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setShowExpenseModal(true)}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <DollarSign className="w-4 h-4 text-emerald-400" /> Log Expense
+              <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Expense
             </button>
 
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
-              className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer z-10"
+              className="px-3 py-1.5 sm:py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Plus className="w-4 h-4" /> Add Variety
+              <Plus className="w-3.5 h-3.5" /> Add Variety
             </button>
 
             <button
               type="button"
               onClick={handleExport}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <FileText className="w-4 h-4" /> Export Report
+              <FileText className="w-3.5 h-3.5" /> Export
             </button>
           </div>
         </div>
       </header>
 
-      {/* Dynamic AI Anomaly Alert Banner */}
-      {anomalyResult.hasAnomaly && (
-        <div className="max-w-7xl mx-auto px-6 w-full mt-6">
-          <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl flex items-center justify-between shadow-lg">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-rose-400 animate-pulse" />
-              <div>
-                <p className="text-sm font-bold text-rose-300">
-                  AI Anomaly Alert: {anomalyResult.flaggedItems.length} Supplier Price Spike(s) Flagged
-                </p>
-                <p className="text-xs text-rose-400/80">
-                  Estimated Leakage Deducted from Net Profit: ${anomalyResult.totalDiscrepancyAmount.toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Content Dashboard */}
-      <main className="max-w-7xl mx-auto px-6 py-8 w-full flex-1 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
         
-        {/* Live P&L Financial Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Live P&L Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Potential Revenue</p>
-            <p className="text-3xl font-black text-white mt-1">${totalRevenue.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-white mt-1">${totalRevenue.toFixed(2)}</p>
             <p className="text-[11px] text-emerald-400 mt-1">COGS: ${totalCOGS.toFixed(2)}</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Profit</p>
-            <p className="text-3xl font-black text-emerald-400 mt-1">${grossProfit.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">${grossProfit.toFixed(2)}</p>
             <p className="text-[11px] text-slate-400 mt-1">Margin: {totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : 0}%</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Expenses & Leakage</p>
-            <p className="text-3xl font-black text-rose-400 mt-1">${(totalExpenses + anomalyResult.totalDiscrepancyAmount).toFixed(2)}</p>
-            <p className="text-[11px] text-slate-400 mt-1">Expenses: ${totalExpenses.toFixed(2)} \vert{} Leakage:${anomalyResult.totalDiscrepancyAmount.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-rose-400 mt-1">${(totalExpenses + anomalyResult.totalDiscrepancyAmount).toFixed(2)}</p>
+            <p className="text-[11px] text-slate-400 mt-1">Expenses: ${totalExpenses.toFixed(2)} • Leakage: ${anomalyResult.totalDiscrepancyAmount.toFixed(2)}</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl border-l-4 border-l-emerald-500">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Live Net Profit</p>
-            <p className={`text-3xl font-black mt-1 ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <p className={`text-2xl sm:text-3xl font-black mt-1 ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               ${netProfit.toFixed(2)}
             </p>
             <p className="text-[11px] text-slate-400 mt-1">Real-time audited balance</p>
           </div>
         </div>
 
-        {/* Performance Insights & Leakage Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Best vs Underperforming */}
-          <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
+        {/* Performance & Expenses Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-emerald-400" /> Item Performance Analytics
             </h3>
 
             <div>
-              <p className="text-xs font-semibold text-emerald-400 mb-2">Top Performing Varieties (Highest Margin)</p>
+              <p className="text-xs font-semibold text-emerald-400 mb-2">Top Performing Varieties</p>
               {topPerformers.length === 0 ? (
                 <p className="text-xs text-slate-500">No inventory data available yet.</p>
               ) : (
                 <div className="space-y-2">
                   {topPerformers.map(item => (
                     <div key={item.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                      <span className="font-medium text-white">{item.varietyName}</span>
-                      <span className="text-emerald-400 font-bold">+${(item.sellingPrice - item.costPrice).toFixed(2)} unit margin</span>
+                      <span className="font-medium text-white truncate max-w-[180px]">{item.varietyName}</span>
+                      <span className="text-emerald-400 font-bold shrink-0">+${(item.sellingPrice - item.costPrice).toFixed(2)} unit margin</span>
                     </div>
                   ))}
                 </div>
@@ -330,15 +292,15 @@ export default function DashboardPage() {
             </div>
 
             <div className="pt-2">
-              <p className="text-xs font-semibold text-rose-400 mb-2">Underperforming / Low Margin Varieties</p>
+              <p className="text-xs font-semibold text-rose-400 mb-2">Underperforming Varieties</p>
               {underperformers.length === 0 ? (
                 <p className="text-xs text-slate-500">No inventory data available yet.</p>
               ) : (
                 <div className="space-y-2">
                   {underperformers.map(item => (
                     <div key={item.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                      <span className="font-medium text-white">{item.varietyName}</span>
-                      <span className="text-rose-400 font-bold">+${(item.sellingPrice - item.costPrice).toFixed(2)} unit margin</span>
+                      <span className="font-medium text-white truncate max-w-[180px]">{item.varietyName}</span>
+                      <span className="text-rose-400 font-bold shrink-0">+${(item.sellingPrice - item.costPrice).toFixed(2)} unit margin</span>
                     </div>
                   ))}
                 </div>
@@ -346,23 +308,28 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Operational Expenses & Audit Log */}
-          <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
+          <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <PieChart className="w-4 h-4 text-emerald-400" /> Live Operational Expenses
             </h3>
             
-            <div className="space-y-2 max-h-56 overflow-y-auto">
-              {expenses.map(exp => (
-                <div key={exp.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                  <div>
-                    <p className="font-medium text-white">{exp.category}</p>
-                    <p className="text-[10px] text-slate-500">Logged on {exp.date}</p>
+            {expenses.length === 0 ? (
+              <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800/80">
+                <p className="text-xs text-slate-500">No expenses logged. Click <span className="text-emerald-400 font-bold">Expense</span> above.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {expenses.map(exp => (
+                  <div key={exp.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                    <div>
+                      <p className="font-medium text-white">{exp.category}</p>
+                      <p className="text-[10px] text-slate-500">Logged on {exp.date}</p>
+                    </div>
+                    <span className="text-rose-400 font-bold">-${exp.amount.toFixed(2)}</span>
                   </div>
-                  <span className="text-rose-400 font-bold">-${exp.amount.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
               <span className="text-slate-400 font-medium">Total Audited Discrepancies</span>
@@ -371,11 +338,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Upload Zone with Camera Button */}
-        <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-2xl relative overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
+        {/* Upload Zone */}
+        <div className="bg-slate-900/40 border border-slate-800 p-6 sm:p-8 rounded-2xl relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                 <UploadCloud className="w-5 h-5 text-emerald-400" /> Receipt AI Upload & Auto-Inventory
               </h2>
               <p className="text-xs text-slate-400 mt-1">
@@ -386,13 +353,13 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => handleFileUpload()}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0"
             >
               <Camera className="w-4 h-4" /> Scan via Camera
             </button>
           </div>
 
-          <label className="border-2 border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/50 p-10 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group">
+          <label className="border-2 border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/50 p-6 sm:p-10 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group">
             <input 
               type="file" 
               accept="image/*,application/pdf" 
@@ -402,7 +369,7 @@ export default function DashboardPage() {
             {isProcessingUpload ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-xs text-emerald-400 font-semibold animate-pulse">Processing OCR & updating financial P&L...</p>
+                <p className="text-xs text-emerald-400 font-semibold animate-pulse text-center">Processing OCR & updating financial P&L...</p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
@@ -427,8 +394,8 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Live Inventory Catalog Table */}
-        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl">
+        {/* Live Inventory Table */}
+        <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Live Inventory Catalog</h3>
             <span className="text-xs text-slate-500">{allVarieties.length} Varieties Active</span>
@@ -436,7 +403,7 @@ export default function DashboardPage() {
 
           {inventoryGroups.length === 0 ? (
             <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800/80">
-              <p className="text-xs text-slate-500">No products in store catalog. Click <span className="text-emerald-400 font-bold">+ Add Variety</span> to manually add inventory.</p>
+              <p className="text-xs text-slate-500">No products in store catalog. Click <span className="text-emerald-400 font-bold">+ Add Variety</span> to add inventory.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -444,7 +411,7 @@ export default function DashboardPage() {
                 <div key={group.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800">
                   <h4 className="text-xs font-bold text-emerald-400 mb-3">{group.groupName} <span className="text-slate-500 font-normal">({group.category})</span></h4>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-300">
+                    <table className="w-full text-left text-xs text-slate-300 min-w-[500px]">
                       <thead>
                         <tr className="border-b border-slate-800 text-slate-500">
                           <th className="pb-2">Variety Name</th>
@@ -467,7 +434,7 @@ export default function DashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteVariety(group.id, v.id)}
-                                className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition"
+                                className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition cursor-pointer"
                                 title="Remove Product"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -486,14 +453,14 @@ export default function DashboardPage() {
 
       </main>
 
-      {/* Add Variety Modal */}
+      {/* Modals */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
             <button 
               type="button" 
               onClick={() => setShowAddModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -573,14 +540,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Log Expense Modal */}
       {showExpenseModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
             <button 
               type="button" 
               onClick={() => setShowExpenseModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
