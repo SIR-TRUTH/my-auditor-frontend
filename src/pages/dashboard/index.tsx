@@ -15,7 +15,9 @@ import {
   DollarSign,
   PieChart,
   Globe,
-  LineChart
+  LineChart,
+  ShoppingBag,
+  ShieldAlert
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -53,6 +55,15 @@ interface ExpenseItem {
   date: string;
 }
 
+interface ShrinkageItem {
+  id: string;
+  itemName: string;
+  qtyLost: number;
+  totalValue: number;
+  reason: string;
+  date: string;
+}
+
 interface CurrencyOption {
   code: string;
   symbol: string;
@@ -77,11 +88,16 @@ export default function DashboardPage() {
   const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+  const [shrinkageLogs, setShrinkageLogs] = useState<ShrinkageItem[]>([]);
+  const [posSalesRevenue, setPosSalesRevenue] = useState(0);
+  const [posSalesCOGS, setPosSalesCOGS] = useState(0);
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showShrinkageModal, setShowShrinkageModal] = useState(false);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState("");
+  const [posNotice, setPosNotice] = useState("");
 
   const [newVarietyName, setNewVarietyName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
@@ -91,6 +107,12 @@ export default function DashboardPage() {
 
   const [expenseCat, setExpenseCat] = useState("Store Utilities");
   const [expenseAmt, setExpenseAmt] = useState(75000);
+
+  // Shrinkage Form State
+  const [shrinkName, setShrinkName] = useState("Damaged Stock");
+  const [shrinkQty, setShrinkQty] = useState(2);
+  const [shrinkCostVal, setShrinkCostVal] = useState(5000);
+  const [shrinkReason, setShrinkReason] = useState("Spoilage / Expired");
 
   const formatCurrency = (val: number) => {
     return `${currentCurrency.symbol}${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -107,17 +129,23 @@ export default function DashboardPage() {
   ]);
   const anomalyResult = detectInvoiceAnomalies(sampleItemsForAudit);
 
-  const totalRevenue = inventoryGroups.reduce(
+  // Financial Calculations including POS sales & Shrinkage losses
+  const inventoryRevenue = inventoryGroups.reduce(
     (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.sellingPrice), 0), 0
   );
-  const totalCOGS = inventoryGroups.reduce(
+  const inventoryCOGS = inventoryGroups.reduce(
     (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.costPrice), 0), 0
   );
-  const grossProfit = totalRevenue - totalCOGS;
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const netProfit = grossProfit - totalExpenses - anomalyResult.totalDiscrepancyAmount;
 
-  // Generate dynamic chart trend points based on live P&L state
+  const totalRevenue = inventoryRevenue + posSalesRevenue;
+  const totalCOGS = inventoryCOGS + posSalesCOGS;
+  const grossProfit = totalRevenue - totalCOGS;
+
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalShrinkageLoss = shrinkageLogs.reduce((sum, s) => sum + s.totalValue, 0);
+  const netProfit = grossProfit - totalExpenses - totalShrinkageLoss - anomalyResult.totalDiscrepancyAmount;
+
+  // Chart trend points
   const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const chartPoints = chartDays.map((day, idx) => {
     const factor = (idx + 1) / 7;
@@ -130,6 +158,36 @@ export default function DashboardPage() {
   });
 
   const maxVal = Math.max(totalRevenue, totalCOGS, Math.abs(netProfit), 100);
+
+  // Simulate POS Sale
+  const handleSimulatePOSSale = () => {
+    const allVars = inventoryGroups.flatMap(g => g.varieties);
+    if (allVars.length === 0) {
+      setPosNotice("Please add items to your inventory catalog first before running POS sales simulation!");
+      setTimeout(() => setPosNotice(""), 4000);
+      return;
+    }
+
+    // Pick first available item with qty > 0
+    const targetItem = allVars.find(v => v.qty > 0);
+    if (!targetItem) {
+      setPosNotice("All inventory stock is currently out of stock!");
+      setTimeout(() => setPosNotice(""), 4000);
+      return;
+    }
+
+    // Deduct 1 quantity from inventory
+    setInventoryGroups(prev => prev.map(g => ({
+      ...g,
+      varieties: g.varieties.map(v => v.id === targetItem.id ? { ...v, qty: Math.max(0, v.qty - 1) } : v)
+    })));
+
+    setPosSalesRevenue(prev => prev + targetItem.sellingPrice);
+    setPosSalesCOGS(prev => prev + targetItem.costPrice);
+
+    setPosNotice(`POS Sale Executed: 1x ${targetItem.varietyName} sold for ${formatCurrency(targetItem.sellingPrice)}!`);
+    setTimeout(() => setPosNotice(""), 4000);
+  };
 
   const handleFileUpload = (e?: React.ChangeEvent<HTMLInputElement>) => {
     setIsProcessingUpload(true);
@@ -194,6 +252,20 @@ export default function DashboardPage() {
     };
     setExpenses([newExp, ...expenses]);
     setShowExpenseModal(false);
+  };
+
+  const handleAddShrinkageSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newShrink: ShrinkageItem = {
+      id: `shrink-${Date.now()}`,
+      itemName: shrinkName,
+      qtyLost: Number(shrinkQty),
+      totalValue: Number(shrinkCostVal),
+      reason: shrinkReason,
+      date: new Date().toISOString().split('T')[0]
+    };
+    setShrinkageLogs([newShrink, ...shrinkageLogs]);
+    setShowShrinkageModal(false);
   };
 
   const handleDeleteVariety = (groupId: string, varietyId: string) => {
@@ -268,6 +340,22 @@ export default function DashboardPage() {
 
             <button
               type="button"
+              onClick={handleSimulatePOSSale}
+              className="px-3 py-1.5 sm:py-2 bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" /> Simulate POS Sale
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowShrinkageModal(true)}
+              className="px-3 py-1.5 sm:py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" /> Shrinkage / Loss
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowExpenseModal(true)}
               className="px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
@@ -293,15 +381,44 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* POS Notification Banner */}
+      {posNotice && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full mt-4">
+          <div className="bg-teal-500/10 border border-teal-500/30 p-3 rounded-xl text-teal-300 text-xs font-bold flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4 shrink-0" />
+            {posNotice}
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic AI Anomaly Alert Banner */}
+      {anomalyResult.hasAnomaly && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full mt-4">
+          <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl flex items-center justify-between shadow-lg">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-400 animate-pulse" />
+              <div>
+                <p className="text-sm font-bold text-rose-300">
+                  AI Anomaly Alert: {anomalyResult.flaggedItems.length} Supplier Price Spike(s) Flagged
+                </p>
+                <p className="text-xs text-rose-400/80">
+                  Estimated Leakage Deducted from Net Profit: {formatCurrency(anomalyResult.totalDiscrepancyAmount)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Dashboard */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
         
         {/* Live P&L Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Potential Revenue</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Sales & Revenue</p>
             <p className="text-2xl sm:text-3xl font-black text-white mt-1">{formatCurrency(totalRevenue)}</p>
-            <p className="text-[11px] text-emerald-400 mt-1">COGS: {formatCurrency(totalCOGS)}</p>
+            <p className="text-[11px] text-emerald-400 mt-1">POS Sales: {formatCurrency(posSalesRevenue)}</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Profit</p>
@@ -309,9 +426,9 @@ export default function DashboardPage() {
             <p className="text-[11px] text-slate-400 mt-1">Margin: {totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : 0}%</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Expenses & Leakage</p>
-            <p className="text-2xl sm:text-3xl font-black text-rose-400 mt-1">{formatCurrency(totalExpenses + anomalyResult.totalDiscrepancyAmount)}</p>
-            <p className="text-[11px] text-slate-400 mt-1">Expenses: {formatCurrency(totalExpenses)} • Leakage: {formatCurrency(anomalyResult.totalDiscrepancyAmount)}</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Expenses & Shrinkage</p>
+            <p className="text-2xl sm:text-3xl font-black text-rose-400 mt-1">{formatCurrency(totalExpenses + totalShrinkageLoss + anomalyResult.totalDiscrepancyAmount)}</p>
+            <p className="text-[11px] text-slate-400 mt-1">Shrinkage Loss: {formatCurrency(totalShrinkageLoss)}</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl border-l-4 border-l-emerald-500">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Live Net Profit</p>
@@ -322,7 +439,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Feature #1: Interactive SVG P&L & Margins Trend Chart */}
+        {/* Real-Time P&L & Margins Trend Chart */}
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -343,7 +460,6 @@ export default function DashboardPage() {
 
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
-                  {/* Tooltip on hover */}
                   <div className="absolute -top-12 opacity-0 group-hover:opacity-100 bg-slate-900 border border-slate-700 text-[10px] p-1.5 rounded shadow-lg pointer-events-none transition-opacity z-20 whitespace-nowrap">
                     <p className="text-white font-bold">{pt.day}</p>
                     <p className="text-emerald-400">Rev: {formatCurrency(pt.revenue)}</p>
@@ -362,7 +478,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Performance & Expenses Grid */}
+        {/* Performance & Shrinkage Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -404,30 +520,30 @@ export default function DashboardPage() {
 
           <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <PieChart className="w-4 h-4 text-emerald-400" /> Live Operational Expenses
+              <ShieldAlert className="w-4 h-4 text-rose-400" /> Shrinkage & Loss Auditing Log
             </h3>
             
-            {expenses.length === 0 ? (
+            {shrinkageLogs.length === 0 ? (
               <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800/80">
-                <p className="text-xs text-slate-500">No expenses logged. Click <span className="text-emerald-400 font-bold">Expense</span> above.</p>
+                <p className="text-xs text-slate-500">No shrinkage or theft logged. Click <span className="text-rose-400 font-bold">Shrinkage / Loss</span> above.</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-56 overflow-y-auto">
-                {expenses.map(exp => (
-                  <div key={exp.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                {shrinkageLogs.map(s => (
+                  <div key={s.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
                     <div>
-                      <p className="font-medium text-white">{exp.category}</p>
-                      <p className="text-[10px] text-slate-500">Logged on {exp.date}</p>
+                      <p className="font-medium text-white">{s.itemName} <span className="text-slate-500">({s.qtyLost} units)</span></p>
+                      <p className="text-[10px] text-rose-400">Reason: {s.reason} • {s.date}</p>
                     </div>
-                    <span className="text-rose-400 font-bold">-{formatCurrency(exp.amount)}</span>
+                    <span className="text-rose-400 font-bold">-{formatCurrency(s.totalValue)}</span>
                   </div>
                 ))}
               </div>
             )}
 
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-              <span className="text-slate-400 font-medium">Total Audited Discrepancies</span>
-              <span className="text-rose-400 font-bold">-{formatCurrency(anomalyResult.totalDiscrepancyAmount)}</span>
+              <span className="text-slate-400 font-medium">Total Audited Discrepancies & Losses</span>
+              <span className="text-rose-400 font-bold">-{formatCurrency(totalShrinkageLoss + anomalyResult.totalDiscrepancyAmount)}</span>
             </div>
           </div>
         </div>
@@ -547,7 +663,7 @@ export default function DashboardPage() {
 
       </main>
 
-      {/* Modals */}
+      {/* Add Variety Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
@@ -634,6 +750,7 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Log Expense Modal */}
       {showExpenseModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
@@ -683,6 +800,85 @@ export default function DashboardPage() {
                   className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl transition cursor-pointer"
                 >
                   Save Expense
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Shrinkage / Loss Modal */}
+      {showShrinkageModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
+            <button 
+              type="button" 
+              onClick={() => setShowShrinkageModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-bold text-white mb-4">Report Shrinkage or Theft</h3>
+            <form onSubmit={handleAddShrinkageSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Item / Product Name</label>
+                <input 
+                  type="text" 
+                  value={shrinkName} 
+                  onChange={e => setShrinkName(e.target.value)} 
+                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Units Lost</label>
+                  <input 
+                    type="number" 
+                    value={shrinkQty} 
+                    onChange={e => setShrinkQty(Number(e.target.value))} 
+                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Total Loss ({currentCurrency.symbol})</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={shrinkCostVal} 
+                    onChange={e => setShrinkCostVal(Number(e.target.value))} 
+                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Loss Reason</label>
+                <select 
+                  value={shrinkReason} 
+                  onChange={e => setShrinkReason(e.target.value)} 
+                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="Spoilage / Expired">Spoilage / Expired</option>
+                  <option value="Damaged in Transit">Damaged in Transit</option>
+                  <option value="Inventory Theft / Missing">Inventory Theft / Missing</option>
+                  <option value="Write-off">Write-off</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowShrinkageModal(false)} 
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Log Loss
                 </button>
               </div>
             </form>
