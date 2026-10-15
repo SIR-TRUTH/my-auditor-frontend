@@ -18,7 +18,8 @@ import {
   LineChart,
   ShoppingBag,
   ShieldAlert,
-  Users
+  Users,
+  UserCheck
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -82,6 +83,7 @@ const CURRENCIES: Record<string, CurrencyOption> = {
 export default function DashboardPage() {
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
   const [currencyKey, setCurrencyKey] = useState("NGN");
+  const [userRole, setUserRole] = useState<'ADMIN' | 'AUDITOR' | 'INVESTOR'>("ADMIN");
   
   const currentCurrency = CURRENCIES[currencyKey] || CURRENCIES.NGN;
 
@@ -145,7 +147,7 @@ export default function DashboardPage() {
   const totalShrinkageLoss = shrinkageLogs.reduce((sum, s) => sum + s.totalValue, 0);
   const netProfit = grossProfit - totalExpenses - totalShrinkageLoss - anomalyResult.totalDiscrepancyAmount;
 
-  // Supplier Risk Benchmark Calculations
+  // Supplier Risk Directory
   const supplierStats = receipts.reduce((acc, r) => {
     const name = r.store;
     if (!acc[name]) {
@@ -180,6 +182,7 @@ export default function DashboardPage() {
   const maxVal = Math.max(totalRevenue, totalCOGS, Math.abs(netProfit), 100);
 
   const handleSimulatePOSSale = () => {
+    if (userRole === 'INVESTOR') return;
     const allVars = inventoryGroups.flatMap(g => g.varieties);
     if (allVars.length === 0) {
       setPosNotice("Please add items to your inventory catalog first before running POS sales simulation!");
@@ -207,6 +210,7 @@ export default function DashboardPage() {
   };
 
   const handleFileUpload = (e?: React.ChangeEvent<HTMLInputElement>) => {
+    if (userRole === 'INVESTOR') return;
     setIsProcessingUpload(true);
     setUploadSuccessMsg("");
 
@@ -234,7 +238,7 @@ export default function DashboardPage() {
 
   const handleAddVarietySubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newVarietyName) return;
+    if (!newVarietyName || userRole === 'INVESTOR') return;
 
     const newVar: ProductVariety = {
       id: `var-${Date.now()}`,
@@ -264,6 +268,7 @@ export default function DashboardPage() {
 
   const handleAddExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (userRole === 'INVESTOR') return;
     const newExp: ExpenseItem = {
       id: `exp-${Date.now()}`,
       category: expenseCat,
@@ -276,6 +281,7 @@ export default function DashboardPage() {
 
   const handleAddShrinkageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (userRole === 'INVESTOR') return;
     const newShrink: ShrinkageItem = {
       id: `shrink-${Date.now()}`,
       itemName: shrinkName,
@@ -289,6 +295,7 @@ export default function DashboardPage() {
   };
 
   const handleDeleteVariety = (groupId: string, varietyId: string) => {
+    if (userRole === 'INVESTOR') return;
     setInventoryGroups(prev => 
       prev.map(g => g.id === groupId ? {
         ...g,
@@ -297,19 +304,6 @@ export default function DashboardPage() {
     );
   };
 
-  const handleExport = () => {
-    downloadCSV({
-      businessName: "Apex Retail Corp",
-      branchName: selectedBranch,
-      dateGenerated: new Date().toLocaleDateString(),
-      totalReceipts: receipts.length,
-      totalUnits: inventoryGroups.reduce((s, g) => s + g.varieties.reduce((vs, v) => vs + v.qty, 0), 0),
-      totalDiscrepancies: receipts.filter(r => r.status === 'Discrepancy').length,
-      discrepancyAmount: anomalyResult.totalDiscrepancyAmount
-    });
-  };
-
-  // PDF Executive Report Generator (Print Window)
   const handleExportPDF = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -334,7 +328,7 @@ export default function DashboardPage() {
         <body>
           <h1>MY-AUDITOR Executive Audit Summary</h1>
           <div class="meta">
-            <strong>Branch:</strong> ${selectedBranch} | <strong>Date:</strong> ${new Date().toLocaleDateString()} | <strong>Currency:</strong> ${currentCurrency.code}
+            <strong>Branch:</strong> ${selectedBranch} | <strong>Role Mode:</strong> ${userRole} | <strong>Date:</strong> ${new Date().toLocaleDateString()}
           </div>
           
           <div class="grid">
@@ -392,6 +386,20 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center flex-wrap justify-end gap-2 w-full sm:w-auto">
+            {/* Multi-User RBAC Switcher */}
+            <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <select
+                value={userRole}
+                onChange={(e) => setUserRole(e.target.value as any)}
+                className="bg-transparent text-xs text-emerald-400 focus:outline-none cursor-pointer font-bold"
+              >
+                <option value="ADMIN" className="bg-slate-900 text-white">ADMIN</option>
+                <option value="AUDITOR" className="bg-slate-900 text-white">AUDITOR</option>
+                <option value="INVESTOR" className="bg-slate-900 text-white">INVESTOR (Read-Only)</option>
+              </select>
+            </div>
+
             {/* Currency Switcher */}
             <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1">
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
@@ -408,37 +416,43 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            <button
-              type="button"
-              onClick={handleSimulatePOSSale}
-              className="px-3 py-1.5 sm:py-2 bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <ShoppingBag className="w-3.5 h-3.5" /> POS Sale
-            </button>
+            {userRole !== 'INVESTOR' && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSimulatePOSSale}
+                  className="px-3 py-1.5 sm:py-2 bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" /> POS Sale
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setShowShrinkageModal(true)}
-              className="px-3 py-1.5 sm:py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <ShieldAlert className="w-3.5 h-3.5" /> Shrinkage
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setShowShrinkageModal(true)}
+                  className="px-3 py-1.5 sm:py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" /> Shrinkage
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setShowExpenseModal(true)}
-              className="px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Expense
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setShowExpenseModal(true)}
+                  className="px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Expense
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setShowAddModal(true)}
-              className="px-3 py-1.5 sm:py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Variety
-            </button>
+                {userRole === 'ADMIN' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(true)}
+                    className="px-3 py-1.5 sm:py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Variety
+                  </button>
+                )}
+              </>
+            )}
 
             <button
               type="button"
@@ -638,7 +652,7 @@ export default function DashboardPage() {
             
             {shrinkageLogs.length === 0 ? (
               <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800/80">
-                <p className="text-xs text-slate-500">No shrinkage or theft logged. Click <span className="text-rose-400 font-bold">Shrinkage</span> above.</p>
+                <p className="text-xs text-slate-500">No shrinkage or theft logged.</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-56 overflow-y-auto">
@@ -662,60 +676,62 @@ export default function DashboardPage() {
         </div>
 
         {/* Upload Zone */}
-        <div className="bg-slate-900/40 border border-slate-800 p-6 sm:p-8 rounded-2xl relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <UploadCloud className="w-5 h-5 text-emerald-400" /> Receipt AI Upload & Auto-Inventory
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Upload invoice files or use live camera to scan physical paper receipts and update live P&L.
-              </p>
+        {userRole !== 'INVESTOR' && (
+          <div className="bg-slate-900/40 border border-slate-800 p-6 sm:p-8 rounded-2xl relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <UploadCloud className="w-5 h-5 text-emerald-400" /> Receipt AI Upload & Auto-Inventory
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Upload invoice files or use live camera to scan physical paper receipts and update live P&L.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleFileUpload()}
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Camera className="w-4 h-4" /> Scan via Camera
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => handleFileUpload()}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Camera className="w-4 h-4" /> Scan via Camera
-            </button>
-          </div>
+            <label className="border-2 border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/50 p-6 sm:p-10 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group">
+              <input 
+                type="file" 
+                accept="image/*,application/pdf" 
+                className="hidden" 
+                onChange={handleFileUpload}
+              />
+              {isProcessingUpload ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-xs text-emerald-400 font-semibold animate-pulse text-center">Processing OCR & updating financial P&L...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-full group-hover:scale-110 transition-transform">
+                    <UploadCloud className="w-8 h-8" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-slate-200">
+                      <span className="text-emerald-400">Click to upload</span> or drag & drop receipts
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">Supports PNG, JPG, or PDF receipts</p>
+                  </div>
+                </div>
+              )}
+            </label>
 
-          <label className="border-2 border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/50 p-6 sm:p-10 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group">
-            <input 
-              type="file" 
-              accept="image/*,application/pdf" 
-              className="hidden" 
-              onChange={handleFileUpload}
-            />
-            {isProcessingUpload ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-xs text-emerald-400 font-semibold animate-pulse text-center">Processing OCR & updating financial P&L...</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-3">
-                <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-full group-hover:scale-110 transition-transform">
-                  <UploadCloud className="w-8 h-8" />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-slate-200">
-                    <span className="text-emerald-400">Click to upload</span> or drag & drop receipts
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Supports PNG, JPG, or PDF receipts</p>
-                </div>
+            {uploadSuccessMsg && (
+              <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                {uploadSuccessMsg}
               </div>
             )}
-          </label>
-
-          {uploadSuccessMsg && (
-            <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              {uploadSuccessMsg}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Live Inventory Table */}
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl">
@@ -726,7 +742,7 @@ export default function DashboardPage() {
 
           {inventoryGroups.length === 0 ? (
             <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800/80">
-              <p className="text-xs text-slate-500">No products in store catalog. Click <span className="text-emerald-400 font-bold">+ Add Variety</span> to add inventory.</p>
+              <p className="text-xs text-slate-500">No products in store catalog.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -742,7 +758,7 @@ export default function DashboardPage() {
                           <th className="pb-2">Stock Qty</th>
                           <th className="pb-2">Cost Price</th>
                           <th className="pb-2">Selling Price</th>
-                          <th className="pb-2 text-right">Action</th>
+                          {userRole === 'ADMIN' && <th className="pb-2 text-right">Action</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-900">
@@ -753,16 +769,18 @@ export default function DashboardPage() {
                             <td className="py-2.5 text-emerald-400 font-bold">{v.qty}</td>
                             <td className="py-2.5">{formatCurrency(v.costPrice)}</td>
                             <td className="py-2.5">{formatCurrency(v.sellingPrice)}</td>
-                            <td className="py-2.5 text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteVariety(group.id, v.id)}
-                                className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition cursor-pointer"
-                                title="Remove Product"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
+                            {userRole === 'ADMIN' && (
+                              <td className="py-2.5 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteVariety(group.id, v.id)}
+                                  className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition cursor-pointer"
+                                  title="Remove Product"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -777,7 +795,7 @@ export default function DashboardPage() {
       </main>
 
       {/* Modals */}
-      {showAddModal && (
+      {showAddModal && userRole === 'ADMIN' && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
             <button 
@@ -863,7 +881,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {showExpenseModal && (
+      {showExpenseModal && userRole !== 'INVESTOR' && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
             <button 
@@ -919,7 +937,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {showShrinkageModal && (
+      {showShrinkageModal && userRole !== 'INVESTOR' && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
             <button 
