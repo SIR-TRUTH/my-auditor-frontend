@@ -18,7 +18,6 @@ export default function SignupPage() {
   const [infoMsg, setInfoMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Send OTP & Check Uniqueness
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -29,7 +28,6 @@ export default function SignupPage() {
       return;
     }
 
-    // Check existing registered users in localStorage for duplicate constraint
     const existingUsers = JSON.parse(localStorage.getItem('myauditor_users') || '[]');
     const emailExists = existingUsers.some((u: any) => u.email.toLowerCase() === email.toLowerCase());
     const phoneExists = existingUsers.some((u: any) => u.phone === phone);
@@ -46,7 +44,6 @@ export default function SignupPage() {
 
     setIsLoading(true);
 
-    // Generate random 6-digit OTP
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
 
@@ -57,7 +54,7 @@ export default function SignupPage() {
         body: JSON.stringify({ email, otpCode: code })
       });
 
-      setInfoMsg(`A 6-digit verification code has been sent to ${email}. (Demo Code: ${code})`);
+      setInfoMsg(`A 6-digit verification code has been sent to ${email}. Please check your inbox or spam folder.`);
       setStep('OTP');
     } catch (err) {
       setErrorMsg('Failed to send verification email. Please try again.');
@@ -66,7 +63,6 @@ export default function SignupPage() {
     }
   };
 
-  // Verify OTP & Complete Signup
   const handleVerifyOtpAndSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -78,7 +74,6 @@ export default function SignupPage() {
 
     setIsLoading(true);
 
-    // Store verified user in local uniqueness database
     const existingUsers = JSON.parse(localStorage.getItem('myauditor_users') || '[]');
     const newUser = {
       id: `usr-${Date.now()}`,
@@ -91,7 +86,6 @@ export default function SignupPage() {
     localStorage.setItem('myauditor_users', JSON.stringify([...existingUsers, newUser]));
     localStorage.setItem('myauditor_current_user', JSON.stringify(newUser));
 
-    // Trigger Welcome Email API
     try {
       await fetch('/api/auth/welcome-email', {
         method: 'POST',
@@ -110,7 +104,6 @@ export default function SignupPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 font-sans">
       <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
         
-        {/* Header Logo */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2">
             <div className="bg-emerald-500/10 p-2.5 rounded-2xl border border-emerald-500/20 text-emerald-400">
@@ -126,7 +119,6 @@ export default function SignupPage() {
           </p>
         </div>
 
-        {/* Error / Info Banners */}
         {errorMsg && (
           <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-semibold flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
@@ -141,7 +133,6 @@ export default function SignupPage() {
           </div>
         )}
 
-        {/* Step 1: User Registration Details */}
         {step === 'DETAILS' ? (
           <form onSubmit={handleRequestOtp} className="space-y-4">
             <div>
@@ -213,7 +204,6 @@ export default function SignupPage() {
             </button>
           </form>
         ) : (
-          /* Step 2: Enter 6-Digit OTP */
           <form onSubmit={handleVerifyOtpAndSignup} className="space-y-4">
             <div>
               <label className="text-xs font-medium text-slate-400 block mb-1">Enter 6-Digit OTP Code</label>

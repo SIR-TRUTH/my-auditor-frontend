@@ -20,7 +20,10 @@ import {
   ShieldAlert,
   Users,
   UserCheck,
-  Menu
+  Menu,
+  MessageSquare,
+  Send,
+  Bot
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -87,9 +90,14 @@ export default function DashboardPage() {
   const [currencyKey, setCurrencyKey] = useState("NGN");
   const [userRole, setUserRole] = useState<'ADMIN' | 'AUDITOR' | 'INVESTOR'>("ADMIN");
   
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ sender: 'ai' | 'user'; text: string }[]>([
+    { sender: 'ai', text: 'Hello! I am your MY-AUDITOR AI Live Support Assistant. How can I help you analyze your financial P&L or supplier risk today?' }
+  ]);
+  const [userQuery, setUserQuery] = useState("");
+
   const currentCurrency = CURRENCIES[currencyKey] || CURRENCIES.NGN;
 
-  // Clean initial state
   const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
@@ -133,7 +141,6 @@ export default function DashboardPage() {
   ]);
   const anomalyResult = detectInvoiceAnomalies(sampleItemsForAudit);
 
-  // Financial Calculations
   const inventoryRevenue = inventoryGroups.reduce(
     (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.sellingPrice), 0), 0
   );
@@ -149,7 +156,28 @@ export default function DashboardPage() {
   const totalShrinkageLoss = shrinkageLogs.reduce((sum, s) => sum + s.totalValue, 0);
   const netProfit = grossProfit - totalExpenses - totalShrinkageLoss - anomalyResult.totalDiscrepancyAmount;
 
-  // Supplier Risk Directory
+  const handleSendAiMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userQuery.trim()) return;
+
+    const query = userQuery;
+    setChatMessages(prev => [...prev, { sender: 'user', text: query }]);
+    setUserQuery("");
+
+    setTimeout(() => {
+      let aiResponse = "I can help with that! MY-AUDITOR automatically reconciles inventory COGS, supplier price spikes, and POS shrinkage in real time.";
+      const lower = query.toLowerCase();
+      if (lower.includes('currency') || lower.includes('naira') || lower.includes('dollar')) {
+        aiResponse = "You can change global currencies anytime using the top-right currency dropdown (₦ NGN, $ USD, € EUR, £ GBP, Ksh KES).";
+      } else if (lower.includes('leakage') || lower.includes('spike') || lower.includes('anomaly')) {
+        aiResponse = "Supplier price spikes above 15% are automatically flagged by our AI Anomaly Detector and deducted from Net Profit as leakage.";
+      } else if (lower.includes('report') || lower.includes('pdf') || lower.includes('export')) {
+        aiResponse = "Click the 'PDF Report' option in the left Action Hub menu to print or save an executive summary PDF.";
+      }
+      setChatMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
+    }, 800);
+  };
+
   const supplierStats = receipts.reduce((acc, r) => {
     const name = r.store;
     if (!acc[name]) {
@@ -169,7 +197,6 @@ export default function DashboardPage() {
     riskScore: Math.round((stat.flagged / stat.total) * 100)
   }));
 
-  // Chart trend points
   const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const chartPoints = chartDays.map((day, idx) => {
     const factor = (idx + 1) / 7;
@@ -363,13 +390,11 @@ export default function DashboardPage() {
   const underperformers = sortedVarieties.slice(-3).reverse();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative pb-20">
       
-      {/* Clean Streamlined Header */}
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Hamburger Button on Left Side */}
             <button
               type="button"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -387,7 +412,6 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {/* Quick Active Status Badge & Currency on Right */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1">
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
@@ -411,7 +435,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Left-Side Grid Dropdown Navigation Sidebar */}
       {isMenuOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex">
           <div className="w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 h-full p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-200">
@@ -429,7 +452,6 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              {/* Role & Branch Selector */}
               <div className="space-y-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store Controls</p>
                 <div>
@@ -465,7 +487,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Quick Actions Grid */}
               <div className="space-y-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Actions Grid</p>
                 
@@ -523,19 +544,16 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* POS Notification Banner */}
-      {posNotice && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full mt-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
+        
+        {posNotice && (
           <div className="bg-teal-500/10 border border-teal-500/30 p-3 rounded-xl text-teal-300 text-xs font-bold flex items-center gap-2">
             <ShoppingBag className="w-4 h-4 shrink-0" />
             {posNotice}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Dynamic AI Anomaly Alert Banner */}
-      {anomalyResult.hasAnomaly && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full mt-4">
+        {anomalyResult.hasAnomaly && (
           <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl flex items-center justify-between shadow-lg">
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-rose-400 animate-pulse" />
@@ -549,13 +567,8 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Main Content Dashboard */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
-        
-        {/* Live P&L Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Sales & Revenue</p>
@@ -581,7 +594,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Real-Time P&L & Margins Trend Chart */}
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -620,7 +632,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Supplier Risk & Price Benchmark Directory */}
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -662,7 +673,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Performance & Shrinkage Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -732,7 +742,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Upload Zone */}
         {userRole !== 'INVESTOR' && (
           <div className="bg-slate-900/40 border border-slate-800 p-6 sm:p-8 rounded-2xl relative overflow-hidden">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -747,7 +756,7 @@ export default function DashboardPage() {
 
               <button
                 type="button"
-                onClick={() => handleFileUpload()}
+                onClick={() => document.getElementById('camera-file-input')?.click()}
                 className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <Camera className="w-4 h-4" /> Scan via Camera
@@ -756,8 +765,10 @@ export default function DashboardPage() {
 
             <label className="border-2 border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/50 p-6 sm:p-10 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group">
               <input 
+                id="camera-file-input"
                 type="file" 
-                accept="image/*,application/pdf" 
+                accept="image/*" 
+                capture="environment"
                 className="hidden" 
                 onChange={handleFileUpload}
               />
@@ -790,7 +801,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Live Inventory Table */}
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Live Inventory Catalog</h3>
@@ -851,226 +861,54 @@ export default function DashboardPage() {
 
       </main>
 
-      {/* Modals */}
-      {showAddModal && userRole === 'ADMIN' && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
-            <button 
-              type="button" 
-              onClick={() => setShowAddModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-lg font-bold text-white mb-4">Add Product Variety to Inventory</h3>
-            <form onSubmit={handleAddVarietySubmit} className="space-y-4">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Product / Variety Name</label>
-                <input 
-                  type="text" 
-                  value={newVarietyName} 
-                  onChange={e => setNewVarietyName(e.target.value)} 
-                  placeholder="e.g. Organic Almond Milk 1L" 
-                  required 
-                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                />
+      <div className="fixed bottom-5 right-5 z-40">
+        {!isAiChatOpen ? (
+          <button
+            type="button"
+            onClick={() => setIsAiChatOpen(true)}
+            className="p-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-full shadow-2xl flex items-center gap-2 font-bold text-xs transition cursor-pointer"
+          >
+            <Bot className="w-5 h-5" /> AI Support
+          </button>
+        ) : (
+          <div className="w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden h-[420px] animate-in slide-in-from-bottom duration-200">
+            <div className="p-3.5 bg-slate-800/80 border-b border-slate-700 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold text-white">MY-AUDITOR AI Live Support</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Barcode</label>
-                  <input 
-                    type="text" 
-                    value={newBarcode} 
-                    onChange={e => setNewBarcode(e.target.value)} 
-                    placeholder="Auto-generated" 
-                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Quantity</label>
-                  <input 
-                    type="number" 
-                    value={newQty} 
-                    onChange={e => setNewQty(Number(e.target.value))} 
-                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Cost Price ({currentCurrency.symbol})</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    value={newCost} 
-                    onChange={e => setNewCost(Number(e.target.value))} 
-                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Selling Price ({currentCurrency.symbol})</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    value={newPrice} 
-                    onChange={e => setNewPrice(Number(e.target.value))} 
-                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddModal(false)} 
-                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Save Product
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <button onClick={() => setIsAiChatOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-      {showExpenseModal && userRole !== 'INVESTOR' && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
-            <button 
-              type="button" 
-              onClick={() => setShowExpenseModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-lg font-bold text-white mb-4">Log Operational Expense</h3>
-            <form onSubmit={handleAddExpenseSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Expense Category</label>
-                <select 
-                  value={expenseCat} 
-                  onChange={e => setExpenseCat(e.target.value)} 
-                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="Store Utilities">Store Utilities</option>
-                  <option value="Logistics & Transport">Logistics & Transport</option>
-                  <option value="Staff Payroll">Staff Payroll</option>
-                  <option value="Marketing & Promo">Marketing & Promo</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Amount ({currentCurrency.symbol})</label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  value={expenseAmt} 
-                  onChange={e => setExpenseAmt(Number(e.target.value))} 
-                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                  required
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setShowExpenseModal(false)} 
-                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Save Expense
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="flex-1 p-3 overflow-y-auto space-y-3 text-xs">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-2.5 rounded-xl ${
+                    msg.sender === 'user' ? 'bg-emerald-500 text-slate-950 font-medium' : 'bg-slate-950 border border-slate-800 text-slate-200'
+                  }`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-      {showShrinkageModal && userRole !== 'INVESTOR' && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl relative">
-            <button 
-              type="button" 
-              onClick={() => setShowShrinkageModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-lg font-bold text-white mb-4">Report Shrinkage or Theft</h3>
-            <form onSubmit={handleAddShrinkageSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Item / Product Name</label>
-                <input 
-                  type="text" 
-                  value={shrinkName} 
-                  onChange={e => setShrinkName(e.target.value)} 
-                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Units Lost</label>
-                  <input 
-                    type="number" 
-                    value={shrinkQty} 
-                    onChange={e => setShrinkQty(Number(e.target.value))} 
-                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Total Loss ({currentCurrency.symbol})</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    value={shrinkCostVal} 
-                    onChange={e => setShrinkCostVal(Number(e.target.value))} 
-                    className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Loss Reason</label>
-                <select 
-                  value={shrinkReason} 
-                  onChange={e => setShrinkReason(e.target.value)} 
-                  className="w-full bg-slate-950 border border-slate-800 text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="Spoilage / Expired">Spoilage / Expired</option>
-                  <option value="Damaged in Transit">Damaged in Transit</option>
-                  <option value="Inventory Theft / Missing">Inventory Theft / Missing</option>
-                  <option value="Write-off">Write-off</option>
-                </select>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setShowShrinkageModal(false)} 
-                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Log Loss
-                </button>
-              </div>
+            <form onSubmit={handleSendAiMessage} className="p-2.5 bg-slate-950 border-t border-slate-800 flex gap-2">
+              <input
+                type="text"
+                value={userQuery}
+                onChange={e => setUserQuery(e.target.value)}
+                placeholder="Ask AI Support..."
+                className="flex-1 bg-slate-900 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+              />
+              <button type="submit" className="p-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl transition cursor-pointer">
+                <Send className="w-3.5 h-3.5" />
+              </button>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
     </div>
   );
