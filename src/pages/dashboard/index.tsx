@@ -19,7 +19,8 @@ import {
   ShoppingBag,
   ShieldAlert,
   Users,
-  UserCheck
+  UserCheck,
+  Menu
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { downloadCSV } from "../../lib/reportExporter";
@@ -81,6 +82,7 @@ const CURRENCIES: Record<string, CurrencyOption> = {
 };
 
 export default function DashboardPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
   const [currencyKey, setCurrencyKey] = useState("NGN");
   const [userRole, setUserRole] = useState<'ADMIN' | 'AUDITOR' | 'INVESTOR'>("ADMIN");
@@ -183,6 +185,7 @@ export default function DashboardPage() {
 
   const handleSimulatePOSSale = () => {
     if (userRole === 'INVESTOR') return;
+    setIsMenuOpen(false);
     const allVars = inventoryGroups.flatMap(g => g.varieties);
     if (allVars.length === 0) {
       setPosNotice("Please add items to your inventory catalog first before running POS sales simulation!");
@@ -305,6 +308,7 @@ export default function DashboardPage() {
   };
 
   const handleExportPDF = () => {
+    setIsMenuOpen(false);
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -359,49 +363,33 @@ export default function DashboardPage() {
   const underperformers = sortedVarieties.slice(-3).reverse();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Responsive Header */}
-      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:h-16 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center justify-between w-full sm:w-auto gap-3">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative">
+      
+      {/* Clean Streamlined Header */}
+      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Hamburger Button on Left Side */}
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-700 transition cursor-pointer flex items-center justify-center"
+              aria-label="Toggle Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
             <Link href="/" className="flex items-center gap-2">
               <div className="bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20 text-emerald-400">
                 <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <span className="text-lg sm:text-xl font-black text-white tracking-wider">MY-AUDITOR</span>
             </Link>
-
-            <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
-              <Building2 className="w-4 h-4 text-emerald-400 hidden sm:block" />
-              <select 
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-500"
-              >
-                <option value="Downtown Flagship">Downtown Flagship</option>
-                <option value="Westside Mall">Westside Mall</option>
-                <option value="Eastside Hub">Eastside Hub</option>
-              </select>
-            </div>
           </div>
 
-          <div className="flex items-center flex-wrap justify-end gap-2 w-full sm:w-auto">
-            {/* Multi-User RBAC Switcher */}
-            <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <select
-                value={userRole}
-                onChange={(e) => setUserRole(e.target.value as any)}
-                className="bg-transparent text-xs text-emerald-400 focus:outline-none cursor-pointer font-bold"
-              >
-                <option value="ADMIN" className="bg-slate-900 text-white">ADMIN</option>
-                <option value="AUDITOR" className="bg-slate-900 text-white">AUDITOR</option>
-                <option value="INVESTOR" className="bg-slate-900 text-white">INVESTOR (Read-Only)</option>
-              </select>
-            </div>
-
-            {/* Currency Switcher */}
-            <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1">
+          {/* Quick Active Status Badge & Currency on Right */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1">
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
               <select
                 value={currencyKey}
@@ -416,55 +404,124 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            {userRole !== 'INVESTOR' && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleSimulatePOSSale}
-                  className="px-3 py-1.5 sm:py-2 bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" /> POS Sale
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowShrinkageModal(true)}
-                  className="px-3 py-1.5 sm:py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" /> Shrinkage
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowExpenseModal(true)}
-                  className="px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Expense
-                </button>
-
-                {userRole === 'ADMIN' && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(true)}
-                    className="px-3 py-1.5 sm:py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Variety
-                  </button>
-                )}
-              </>
-            )}
-
-            <button
-              type="button"
-              onClick={handleExportPDF}
-              className="px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Export Executive PDF Report"
-            >
-              <FileText className="w-3.5 h-3.5" /> PDF Report
-            </button>
+            <span className="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-3 py-1 rounded-xl border border-emerald-500/30">
+              {userRole}
+            </span>
           </div>
         </div>
       </header>
+
+      {/* Left-Side Grid Dropdown Navigation Sidebar */}
+      {isMenuOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex">
+          <div className="w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 h-full p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-200">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-6 h-6 text-emerald-400" />
+                  <span className="font-black text-white text-lg">Action Hub</span>
+                </div>
+                <button 
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Role & Branch Selector */}
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store Controls</p>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Branch</label>
+                  <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
+                    <Building2 className="w-4 h-4 text-emerald-400" />
+                    <select 
+                      value={selectedBranch}
+                      onChange={(e) => setSelectedBranch(e.target.value)}
+                      className="bg-transparent text-xs text-slate-200 w-full focus:outline-none"
+                    >
+                      <option value="Downtown Flagship" className="bg-slate-900">Downtown Flagship</option>
+                      <option value="Westside Mall" className="bg-slate-900">Westside Mall</option>
+                      <option value="Eastside Hub" className="bg-slate-900">Eastside Hub</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Access Role</label>
+                  <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
+                    <UserCheck className="w-4 h-4 text-emerald-400" />
+                    <select
+                      value={userRole}
+                      onChange={(e) => setUserRole(e.target.value as any)}
+                      className="bg-transparent text-xs text-emerald-400 font-bold w-full focus:outline-none"
+                    >
+                      <option value="ADMIN" className="bg-slate-900 text-white">ADMIN</option>
+                      <option value="AUDITOR" className="bg-slate-900 text-white">AUDITOR</option>
+                      <option value="INVESTOR" className="bg-slate-900 text-white">INVESTOR (Read-Only)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions Grid */}
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Actions Grid</p>
+                
+                {userRole !== 'INVESTOR' && (
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSimulatePOSSale}
+                      className="w-full p-3 bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <ShoppingBag className="w-4 h-4" /> Simulate POS Sale
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setIsMenuOpen(false); setShowShrinkageModal(true); }}
+                      className="w-full p-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <ShieldAlert className="w-4 h-4" /> Report Shrinkage / Theft
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setIsMenuOpen(false); setShowExpenseModal(true); }}
+                      className="w-full p-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <DollarSign className="w-4 h-4 text-emerald-400" /> Log Operational Expense
+                    </button>
+
+                    {userRole === 'ADMIN' && (
+                      <button
+                        type="button"
+                        onClick={() => { setIsMenuOpen(false); setShowAddModal(true); }}
+                        className="w-full p-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" /> Add Inventory Variety
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  className="w-full p-3 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" /> Export Executive PDF Report
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.4 • Investor Clean State</p>
+          </div>
+          <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
+        </div>
+      )}
 
       {/* POS Notification Banner */}
       {posNotice && (
