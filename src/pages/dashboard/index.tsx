@@ -231,6 +231,13 @@ export default function DashboardPage() {
 
   const startLiveCamera = async () => {
     if (userRole === 'INVESTOR') return;
+    
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      document.getElementById('native-camera-input')?.click();
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } }
@@ -276,7 +283,6 @@ export default function DashboardPage() {
       const shrinkageRatio = totalRevenue > 0 ? ((totalShrinkageLoss / totalRevenue) * 100).toFixed(1) : '0';
       const totalItemsCount = activeStore.inventoryGroups.reduce((acc, g) => acc + g.varieties.reduce((vAcc, v) => vAcc + v.qty, 0), 0);
 
-      // 1. Greetings & Onboarding Walkthrough
       if (['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'sup'].includes(lower) || lower.startsWith('hi ') || lower.startsWith('hello ')) {
         aiResponse = `👋 Hello! I am your MY-AUDITOR AI Forensic CPA. I am monitoring **${activeStore.name}** (${activeStore.type}). Ask me to run variance audits, analyze expense burn ratios, calculate break-even points, or audit supplier price spikes.`;
       } 
@@ -286,7 +292,6 @@ export default function DashboardPage() {
           `2️⃣ **Invoice Auditing:** Use the AI OCR Camera Scanner or upload paper receipts to auto-reconcile supplier pricing.\n` +
           `3️⃣ **Financial Diagnostics:** Ask me complex queries like *"Audit my expense burn rate"*, *"What is my inventory valuation?"*, or *"Check supplier price variances"*.`;
       } 
-      // 2. Complex Expense Burn Rate & Overhead Audit
       else if (lower.includes('expense') || lower.includes('burn') || lower.includes('overhead') || lower.includes('cost')) {
         aiResponse = `📉 **Overhead & Expense Audit (${activeStore.name}):**\n` +
           `• Total Operating Expenses: **${formatCurrency(totalExpenses)}**\n` +
@@ -294,7 +299,6 @@ export default function DashboardPage() {
           `• Total COGS: **${formatCurrency(totalCOGS)}**\n` +
           `Recommendation: Review utility and logistical overhead to protect gross margins.`;
       } 
-      // 3. Inventory Shrinkage & Stock Audit
       else if (lower.includes('shrinkage') || lower.includes('theft') || lower.includes('loss') || lower.includes('damage') || lower.includes('audit')) {
         aiResponse = `🛡️ **Shrinkage & Stock Integrity Audit (${activeStore.name}):**\n` +
           `• Logged Shrinkage / Damage Loss: **${formatCurrency(totalShrinkageLoss)}**\n` +
@@ -302,7 +306,6 @@ export default function DashboardPage() {
           `• Active Stock Units: **${totalItemsCount} units** across **${allVarieties.length} varieties**\n` +
           `${totalShrinkageLoss > 0 ? '⚠️ Action Required: Investigate physical stock counts against POS reconciliation.' : '✅ Stock integrity is currently clean with zero reported shrinkage.'}`;
       } 
-      // 4. Supplier Price Spikes & Leakage Analysis
       else if (lower.includes('supplier') || lower.includes('spike') || lower.includes('leakage') || lower.includes('variance') || lower.includes('anomaly')) {
         if (anomalyResult.hasAnomaly) {
           aiResponse = `🚨 **Forensic Supplier Audit Alert:**\n` +
@@ -312,7 +315,6 @@ export default function DashboardPage() {
           aiResponse = `✅ **Supplier Audit Clean:** All active invoices for ${activeStore.name} match standard benchmark cost pricing. Zero price discrepancies detected.`;
         }
       } 
-      // 5. Full P&L & Profit Margin Breakdown
       else if (lower.includes('margin') || lower.includes('profit') || lower.includes('net') || lower.includes('gross') || lower.includes('revenue') || lower.includes('p&l')) {
         aiResponse = `📊 **Comprehensive P&L Audit (${activeStore.name}):**\n` +
           `• **Total Revenue:** ${formatCurrency(totalRevenue)} (POS: ${formatCurrency(activeStore.posSalesRevenue)})\n` +
@@ -322,7 +324,6 @@ export default function DashboardPage() {
           `• **Shrinkage & Leakage Losses:** ${formatCurrency(totalShrinkageLoss + anomalyResult.totalDiscrepancyAmount)}\n` +
           `• **Net Audited Profit:** **${formatCurrency(netProfit)}**`;
       } 
-      // 6. Default CPA Diagnostic
       else {
         aiResponse = `🔍 **Forensic CPA Analysis for ${activeStore.name}:**\n` +
           `Your net audited profit currently stands at **${formatCurrency(netProfit)}** with a gross margin of **${marginPct}%**.\n` +
@@ -995,7 +996,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v3.3 • Forensic CPA Active</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v3.4 • Forensic CPA Active</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
