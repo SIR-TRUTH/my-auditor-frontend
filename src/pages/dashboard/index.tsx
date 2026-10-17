@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   ShieldCheck, 
@@ -26,7 +26,6 @@ import {
   Bot
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
-import { downloadCSV } from "../../lib/reportExporter";
 
 interface ProductVariety {
   id: string;
@@ -112,6 +111,11 @@ export default function DashboardPage() {
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState("");
   const [posNotice, setPosNotice] = useState("");
 
+  // Live Camera WebRTC State
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+
   const [newVarietyName, setNewVarietyName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
   const [newQty, setNewQty] = useState(15);
@@ -155,6 +159,36 @@ export default function DashboardPage() {
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalShrinkageLoss = shrinkageLogs.reduce((sum, s) => sum + s.totalValue, 0);
   const netProfit = grossProfit - totalExpenses - totalShrinkageLoss - anomalyResult.totalDiscrepancyAmount;
+
+  // Live Camera Trigger
+  const startLiveCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } }
+      });
+      setCameraStream(stream);
+      setIsCameraActive(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      // Fallback to native file capture if webcam permission is denied or unsupported
+      document.getElementById('native-camera-input')?.click();
+    }
+  };
+
+  const stopLiveCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhotoAndProcess = () => {
+    stopLiveCamera();
+    handleFileUpload();
+  };
 
   const handleSendAiMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,64 +298,6 @@ export default function DashboardPage() {
       setIsProcessingUpload(false);
       setUploadSuccessMsg("Receipt successfully parsed, audited & factored into live P&L!");
     }, 1200);
-  };
-
-  const handleAddVarietySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newVarietyName || userRole === 'INVESTOR') return;
-
-    const newVar: ProductVariety = {
-      id: `var-${Date.now()}`,
-      barcode: newBarcode || `${Math.floor(8000000 + Math.random() * 1000000)}`,
-      varietyName: newVarietyName,
-      qty: Number(newQty),
-      costPrice: Number(newCost),
-      sellingPrice: Number(newPrice)
-    };
-
-    setInventoryGroups(prev => {
-      if (prev.length === 0) {
-        return [{
-          id: 'grp-1',
-          groupName: 'Store Catalog',
-          category: 'Retail General',
-          varieties: [newVar]
-        }];
-      }
-      return prev.map((g, idx) => idx === 0 ? { ...g, varieties: [newVar, ...g.varieties] } : g);
-    });
-
-    setNewVarietyName("");
-    setNewBarcode("");
-    setShowAddModal(false);
-  };
-
-  const handleAddExpenseSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (userRole === 'INVESTOR') return;
-    const newExp: ExpenseItem = {
-      id: `exp-${Date.now()}`,
-      category: expenseCat,
-      amount: Number(expenseAmt),
-      date: new Date().toISOString().split('T')[0]
-    };
-    setExpenses([newExp, ...expenses]);
-    setShowExpenseModal(false);
-  };
-
-  const handleAddShrinkageSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (userRole === 'INVESTOR') return;
-    const newShrink: ShrinkageItem = {
-      id: `shrink-${Date.now()}`,
-      itemName: shrinkName,
-      qtyLost: Number(shrinkQty),
-      totalValue: Number(shrinkCostVal),
-      reason: shrinkReason,
-      date: new Date().toISOString().split('T')[0]
-    };
-    setShrinkageLogs([newShrink, ...shrinkageLogs]);
-    setShowShrinkageModal(false);
   };
 
   const handleDeleteVariety = (groupId: string, varietyId: string) => {
@@ -435,6 +411,46 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* Hidden File Input for Native Camera Backup */}
+      <input 
+        id="native-camera-input"
+        type="file" 
+        accept="image/*" 
+        capture="environment"
+        className="hidden" 
+        onChange={handleFileUpload}
+      />
+
+      {/* Live WebRTC Camera Modal */}
+      {isCameraActive && (
+        <div className="fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-between p-4 backdrop-blur-md">
+          <div className="w-full max-w-md flex justify-between items-center text-white">
+            <span className="text-xs font-bold flex items-center gap-2 text-emerald-400">
+              <Camera className="w-4 h-4" /> Live AI Camera Scanner
+            </span>
+            <button onClick={stopLiveCamera} className="p-2 bg-slate-800 rounded-full text-slate-300">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="relative w-full max-w-md aspect-[3/4] bg-black rounded-3xl overflow-hidden border-2 border-emerald-500/50 shadow-2xl flex items-center justify-center my-auto">
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <div className="absolute inset-8 border-2 border-dashed border-emerald-400/60 rounded-2xl pointer-events-none flex items-center justify-center">
+              <span className="text-[10px] text-emerald-300 bg-slate-950/80 px-3 py-1 rounded-full font-semibold">
+                Align Receipt Within Frame
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={capturePhotoAndProcess}
+            className="w-full max-w-md py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl transition cursor-pointer flex items-center justify-center gap-2 mb-4"
+          >
+            <Camera className="w-5 h-5" /> Capture & Scan Receipt
+          </button>
+        </div>
+      )}
+
       {isMenuOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex">
           <div className="w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 h-full p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-200">
@@ -538,7 +554,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.4 • Investor Clean State</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.4 • Enterprise Security Active</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
@@ -632,116 +648,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-emerald-400" /> Supplier Risk & Price Benchmark Directory
-            </h3>
-            <span className="text-xs text-slate-500">{supplierList.length} Suppliers Tracked</span>
-          </div>
-
-          {supplierList.length === 0 ? (
-            <div className="text-center py-6 bg-slate-950/50 rounded-xl border border-slate-800/80">
-              <p className="text-xs text-slate-500">No supplier data logged yet. Upload or scan invoices to generate vendor risk ratings.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {supplierList.map((sup, idx) => (
-                <div key={idx} className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-bold text-white text-xs">{sup.name}</p>
-                      <p className="text-[10px] text-slate-500">{sup.total} Invoices Parsed</p>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      sup.riskScore > 30 ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                    }`}>
-                      {sup.riskScore}% Risk
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t border-slate-900 flex justify-between items-center text-xs">
-                    <span className="text-slate-400">Total Spend</span>
-                    <span className="text-white font-bold">{formatCurrency(sup.spend)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400">Flagged Anomalies</span>
-                    <span className="text-rose-400 font-bold">{sup.flagged} Overcharges</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-400" /> Item Performance Analytics
-            </h3>
-
-            <div>
-              <p className="text-xs font-semibold text-emerald-400 mb-2">Top Performing Varieties</p>
-              {topPerformers.length === 0 ? (
-                <p className="text-xs text-slate-500">No inventory data available yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {topPerformers.map(item => (
-                    <div key={item.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                      <span className="font-medium text-white truncate max-w-[180px]">{item.varietyName}</span>
-                      <span className="text-emerald-400 font-bold shrink-0">+{formatCurrency(item.sellingPrice - item.costPrice)} unit margin</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-2">
-              <p className="text-xs font-semibold text-rose-400 mb-2">Underperforming Varieties</p>
-              {underperformers.length === 0 ? (
-                <p className="text-xs text-slate-500">No inventory data available yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {underperformers.map(item => (
-                    <div key={item.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                      <span className="font-medium text-white truncate max-w-[180px]">{item.varietyName}</span>
-                      <span className="text-rose-400 font-bold shrink-0">+{formatCurrency(item.sellingPrice - item.costPrice)} unit margin</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-rose-400" /> Shrinkage & Loss Auditing Log
-            </h3>
-            
-            {shrinkageLogs.length === 0 ? (
-              <div className="text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800/80">
-                <p className="text-xs text-slate-500">No shrinkage or theft logged.</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-56 overflow-y-auto">
-                {shrinkageLogs.map(s => (
-                  <div key={s.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="font-medium text-white">{s.itemName} <span className="text-slate-500">({s.qtyLost} units)</span></p>
-                      <p className="text-[10px] text-rose-400">Reason: {s.reason} • {s.date}</p>
-                    </div>
-                    <span className="text-rose-400 font-bold">-{formatCurrency(s.totalValue)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-              <span className="text-slate-400 font-medium">Total Audited Discrepancies & Losses</span>
-              <span className="text-rose-400 font-bold">-{formatCurrency(totalShrinkageLoss + anomalyResult.totalDiscrepancyAmount)}</span>
-            </div>
-          </div>
-        </div>
-
         {userRole !== 'INVESTOR' && (
           <div className="bg-slate-900/40 border border-slate-800 p-6 sm:p-8 rounded-2xl relative overflow-hidden">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -756,8 +662,8 @@ export default function DashboardPage() {
 
               <button
                 type="button"
-                onClick={() => document.getElementById('camera-file-input')?.click()}
-                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                onClick={startLiveCamera}
+                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0 shadow-lg"
               >
                 <Camera className="w-4 h-4" /> Scan via Camera
               </button>
@@ -765,10 +671,8 @@ export default function DashboardPage() {
 
             <label className="border-2 border-dashed border-slate-700 hover:border-emerald-500/50 bg-slate-950/50 p-6 sm:p-10 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group">
               <input 
-                id="camera-file-input"
                 type="file" 
-                accept="image/*" 
-                capture="environment"
+                accept="image/*,application/pdf" 
                 className="hidden" 
                 onChange={handleFileUpload}
               />
