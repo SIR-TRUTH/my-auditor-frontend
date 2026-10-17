@@ -21,7 +21,8 @@ import {
   Send,
   Bot,
   Lock,
-  Store
+  Store,
+  Tag
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { parseReceiptImageText } from "../../lib/ocrParser";
@@ -71,6 +72,7 @@ interface ShrinkageItem {
 interface StoreBranchData {
   id: string;
   name: string;
+  type: string;
   address: string;
   inventoryGroups: ProductGroup[];
   receipts: Receipt[];
@@ -94,6 +96,17 @@ const CURRENCIES: Record<string, CurrencyOption> = {
   KES: { code: 'KES', symbol: 'Ksh', rate: 130 }
 };
 
+const STORE_TYPES = [
+  "Retail Supermarket & Provisions",
+  "FMCG Wholesale & Distribution",
+  "Pharmacy & Patent Medicine",
+  "Electronics & Tech Accessories",
+  "Boutique, Clothing & Footwear",
+  "Restaurant, Lounge & Bar",
+  "Hardware & Building Materials",
+  "General Merchandise"
+];
+
 export default function DashboardPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currencyKey, setCurrencyKey] = useState("NGN");
@@ -104,6 +117,7 @@ export default function DashboardPage() {
     {
       id: 'store-1',
       name: 'Main Flagship Store',
+      type: 'Retail Supermarket & Provisions',
       address: 'Lagos Island',
       inventoryGroups: [],
       receipts: [],
@@ -118,6 +132,7 @@ export default function DashboardPage() {
   // Modals state
   const [showNewStoreModal, setShowNewStoreModal] = useState(false);
   const [newStoreNameInput, setNewStoreNameInput] = useState("");
+  const [newStoreTypeInput, setNewStoreTypeInput] = useState(STORE_TYPES[0]);
   const [newStoreLocationInput, setNewStoreLocationInput] = useState("");
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -127,7 +142,7 @@ export default function DashboardPage() {
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState("");
   const [posNotice, setPosNotice] = useState("");
 
-  // New Item form state
+  // Form states
   const [newGroupName, setNewGroupName] = useState("General Stock");
   const [newCategory, setNewCategory] = useState("FMCG");
   const [newVarietyName, setNewVarietyName] = useState("");
@@ -136,11 +151,9 @@ export default function DashboardPage() {
   const [newCost, setNewCost] = useState(1000);
   const [newPrice, setNewPrice] = useState(1500);
 
-  // Expense form state
   const [expenseCat, setExpenseCat] = useState("Utilities & Generator");
   const [expenseAmt, setExpenseAmt] = useState(25000);
 
-  // Shrinkage form state
   const [shrinkName, setShrinkName] = useState("Damaged Goods");
   const [shrinkQty, setShrinkQty] = useState(1);
   const [shrinkCostVal, setShrinkCostVal] = useState(1000);
@@ -165,7 +178,6 @@ export default function DashboardPage() {
     return `${currentCurrency.symbol}${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  // Financial calculations for ACTIVE store
   const sampleItemsForAudit = activeStore.receipts.flatMap(r => [
     { 
       id: `${r.id}-1`, 
@@ -200,6 +212,7 @@ export default function DashboardPage() {
     const newStore: StoreBranchData = {
       id: `store-${Date.now()}`,
       name: newStoreNameInput,
+      type: newStoreTypeInput,
       address: newStoreLocationInput || "Main Address",
       inventoryGroups: [],
       receipts: [],
@@ -257,8 +270,8 @@ export default function DashboardPage() {
       const lower = query.toLowerCase();
       let aiResponse = "";
 
-      if (lower.includes('store') || lower.includes('branch') || lower.includes('multiple')) {
-        aiResponse = `🏬 You currently have **${stores.length} registered store branch(es)**. Active store: **${activeStore.name}**. You can add new branch locations anytime using the Action Hub menu!`;
+      if (lower.includes('store') || lower.includes('branch') || lower.includes('type')) {
+        aiResponse = `🏬 Active store: **${activeStore.name}** (${activeStore.type}). You have **${stores.length} store branch(es)** configured.`;
       } else if (lower.includes('margin') || lower.includes('profit') || lower.includes('net') || lower.includes('gross')) {
         const marginPct = totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : '0';
         aiResponse = `📊 **Live Financials (${activeStore.name}):**\n` +
@@ -460,7 +473,7 @@ export default function DashboardPage() {
         <body>
           <h1>MY-AUDITOR Executive Audit Summary</h1>
           <div class="meta">
-            <strong>Store:</strong> ${activeStore.name} (${activeStore.address}) | <strong>Role:</strong> ${userRole} | <strong>Date:</strong> ${new Date().toLocaleDateString()}
+            <strong>Store:</strong> ${activeStore.name} (${activeStore.type}) | <strong>Location:</strong> ${activeStore.address} | <strong>Role:</strong> ${userRole} | <strong>Date:</strong> ${new Date().toLocaleDateString()}
           </div>
           <div class="grid">
             <div class="card"><h3>Total Revenue</h3><p>${formatCurrency(totalRevenue)}</p></div>
@@ -537,7 +550,7 @@ export default function DashboardPage() {
         onChange={handleFileUpload}
       />
 
-      {/* New Store Branch Creation Modal */}
+      {/* New Store Branch Creation Modal with Store Type Selector */}
       {showNewStoreModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
@@ -561,6 +574,23 @@ export default function DashboardPage() {
                   className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Type of Store / Business Category</label>
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
+                  <Tag className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <select
+                    value={newStoreTypeInput}
+                    onChange={e => setNewStoreTypeInput(e.target.value)}
+                    className="bg-transparent text-xs text-slate-200 w-full focus:outline-none cursor-pointer"
+                  >
+                    {STORE_TYPES.map((t, idx) => (
+                      <option key={idx} value={t} className="bg-slate-900 text-white">{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs text-slate-400 block mb-1">Location / Address</label>
                 <input
@@ -571,6 +601,7 @@ export default function DashboardPage() {
                   className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
+
               <button
                 type="submit"
                 className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition cursor-pointer"
@@ -831,7 +862,7 @@ export default function DashboardPage() {
                     <Store className="w-4 h-4 text-emerald-400" />
                     <select 
                       value={activeStoreId}
-                      onChange={(e) => setSelectedBranch && setActiveStoreId(e.target.value)}
+                      onChange={(e) => setActiveStoreId(e.target.value)}
                       className="bg-transparent text-xs text-slate-200 w-full focus:outline-none cursor-pointer"
                     >
                       {stores.map(s => (
@@ -914,7 +945,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v3.1 • Multi-Store Active</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v3.2 • Multi-Store & Category Active</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
@@ -922,17 +953,22 @@ export default function DashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
         
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800/80 pb-4 gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              <Store className="w-6 h-6 text-emerald-400" /> {activeStore.name}
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">{activeStore.address} • Multi-Store Branch</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <Store className="w-6 h-6 text-emerald-400" /> {activeStore.name}
+              </h1>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                {activeStore.type}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">{activeStore.address}</p>
           </div>
 
           <button
             onClick={() => setShowNewStoreModal(true)}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" /> Add Store Branch
           </button>
