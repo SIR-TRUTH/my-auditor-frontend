@@ -20,7 +20,8 @@ import {
   Menu,
   Send,
   Bot,
-  Lock
+  Lock,
+  Store
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { parseReceiptImageText } from "../../lib/ocrParser";
@@ -67,6 +68,18 @@ interface ShrinkageItem {
   date: string;
 }
 
+interface StoreBranchData {
+  id: string;
+  name: string;
+  address: string;
+  inventoryGroups: ProductGroup[];
+  receipts: Receipt[];
+  expenses: ExpenseItem[];
+  shrinkageLogs: ShrinkageItem[];
+  posSalesRevenue: number;
+  posSalesCOGS: number;
+}
+
 interface CurrencyOption {
   code: string;
   symbol: string;
@@ -83,26 +96,30 @@ const CURRENCIES: Record<string, CurrencyOption> = {
 
 export default function DashboardPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
   const [currencyKey, setCurrencyKey] = useState("NGN");
   const [userRole, setUserRole] = useState<'ADMIN' | 'AUDITOR' | 'INVESTOR'>("ADMIN");
-  
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{ sender: 'ai' | 'user'; text: string }[]>([
-    { sender: 'ai', text: 'Hello! I am your MY-AUDITOR AI Financial Advisor. Ask me anything about your current sales, expenses, or profit margins.' }
+
+  // Multi-Store Branches State
+  const [stores, setStores] = useState<StoreBranchData[]>([
+    {
+      id: 'store-1',
+      name: 'Main Flagship Store',
+      address: 'Lagos Island',
+      inventoryGroups: [],
+      receipts: [],
+      expenses: [],
+      shrinkageLogs: [],
+      posSalesRevenue: 0,
+      posSalesCOGS: 0
+    }
   ]);
-  const [userQuery, setUserQuery] = useState("");
+  const [activeStoreId, setActiveStoreId] = useState<string>('store-1');
 
-  const currentCurrency = CURRENCIES[currencyKey] || CURRENCIES.NGN;
+  // Modals state
+  const [showNewStoreModal, setShowNewStoreModal] = useState(false);
+  const [newStoreNameInput, setNewStoreNameInput] = useState("");
+  const [newStoreLocationInput, setNewStoreLocationInput] = useState("");
 
-  // Clean Initial State — Starts at 0
-  const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
-  const [shrinkageLogs, setShrinkageLogs] = useState<ShrinkageItem[]>([]);
-  const [posSalesRevenue, setPosSalesRevenue] = useState(0);
-  const [posSalesCOGS, setPosSalesCOGS] = useState(0);
-  
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showShrinkageModal, setShowShrinkageModal] = useState(false);
@@ -111,7 +128,7 @@ export default function DashboardPage() {
   const [posNotice, setPosNotice] = useState("");
 
   // New Item form state
-  const [newGroupName, setNewGroupName] = useState("Beverages");
+  const [newGroupName, setNewGroupName] = useState("General Stock");
   const [newCategory, setNewCategory] = useState("FMCG");
   const [newVarietyName, setNewVarietyName] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
@@ -120,7 +137,7 @@ export default function DashboardPage() {
   const [newPrice, setNewPrice] = useState(1500);
 
   // Expense form state
-  const [expenseCat, setExpenseCat] = useState("Store Power / Fuel");
+  const [expenseCat, setExpenseCat] = useState("Utilities & Generator");
   const [expenseAmt, setExpenseAmt] = useState(25000);
 
   // Shrinkage form state
@@ -129,15 +146,27 @@ export default function DashboardPage() {
   const [shrinkCostVal, setShrinkCostVal] = useState(1000);
   const [shrinkReason, setShrinkReason] = useState("Spoilage");
 
+  // Camera State
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+
+  // Chat State
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ sender: 'ai' | 'user'; text: string }[]>([
+    { sender: 'ai', text: 'Hello! I am your MY-AUDITOR AI Financial Assistant. Ask me anything about your active store branches or consolidated margins.' }
+  ]);
+  const [userQuery, setUserQuery] = useState("");
+
+  const currentCurrency = CURRENCIES[currencyKey] || CURRENCIES.NGN;
+  const activeStore = stores.find(s => s.id === activeStoreId) || stores[0];
 
   const formatCurrency = (val: number) => {
     return `${currentCurrency.symbol}${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const sampleItemsForAudit = receipts.flatMap(r => [
+  // Financial calculations for ACTIVE store
+  const sampleItemsForAudit = activeStore.receipts.flatMap(r => [
     { 
       id: `${r.id}-1`, 
       name: `${r.store} Ingested Item`, 
@@ -148,20 +177,44 @@ export default function DashboardPage() {
   ]);
   const anomalyResult = detectInvoiceAnomalies(sampleItemsForAudit);
 
-  const inventoryRevenue = inventoryGroups.reduce(
+  const inventoryRevenue = activeStore.inventoryGroups.reduce(
     (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.sellingPrice), 0), 0
   );
-  const inventoryCOGS = inventoryGroups.reduce(
+  const inventoryCOGS = activeStore.inventoryGroups.reduce(
     (sum, g) => sum + g.varieties.reduce((vSum, v) => vSum + (v.qty * v.costPrice), 0), 0
   );
 
-  const totalRevenue = inventoryRevenue + posSalesRevenue;
-  const totalCOGS = inventoryCOGS + posSalesCOGS;
+  const totalRevenue = inventoryRevenue + activeStore.posSalesRevenue;
+  const totalCOGS = inventoryCOGS + activeStore.posSalesCOGS;
   const grossProfit = totalRevenue - totalCOGS;
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalShrinkageLoss = shrinkageLogs.reduce((sum, s) => sum + s.totalValue, 0);
+  const totalExpenses = activeStore.expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalShrinkageLoss = activeStore.shrinkageLogs.reduce((sum, s) => sum + s.totalValue, 0);
   const netProfit = grossProfit - totalExpenses - totalShrinkageLoss - anomalyResult.totalDiscrepancyAmount;
+
+  // Add New Store Branch
+  const handleCreateNewStore = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStoreNameInput.trim()) return;
+
+    const newStore: StoreBranchData = {
+      id: `store-${Date.now()}`,
+      name: newStoreNameInput,
+      address: newStoreLocationInput || "Main Address",
+      inventoryGroups: [],
+      receipts: [],
+      expenses: [],
+      shrinkageLogs: [],
+      posSalesRevenue: 0,
+      posSalesCOGS: 0
+    };
+
+    setStores(prev => [...prev, newStore]);
+    setActiveStoreId(newStore.id);
+    setNewStoreNameInput("");
+    setNewStoreLocationInput("");
+    setShowNewStoreModal(false);
+  };
 
   const startLiveCamera = async () => {
     if (userRole === 'INVESTOR') return;
@@ -204,18 +257,17 @@ export default function DashboardPage() {
       const lower = query.toLowerCase();
       let aiResponse = "";
 
-      if (lower.includes('margin') || lower.includes('profit') || lower.includes('net') || lower.includes('gross')) {
+      if (lower.includes('store') || lower.includes('branch') || lower.includes('multiple')) {
+        aiResponse = `🏬 You currently have **${stores.length} registered store branch(es)**. Active store: **${activeStore.name}**. You can add new branch locations anytime using the Action Hub menu!`;
+      } else if (lower.includes('margin') || lower.includes('profit') || lower.includes('net') || lower.includes('gross')) {
         const marginPct = totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : '0';
-        aiResponse = `📊 **Live Financial Summary (${selectedBranch}):**\n` +
+        aiResponse = `📊 **Live Financials (${activeStore.name}):**\n` +
           `• Total Revenue: ${formatCurrency(totalRevenue)}\n` +
           `• Gross Profit: ${formatCurrency(grossProfit)} (${marginPct}% Margin)\n` +
           `• Total Expenses & Losses: ${formatCurrency(totalExpenses + totalShrinkageLoss + anomalyResult.totalDiscrepancyAmount)}\n` +
           `• Net Audited Profit: ${formatCurrency(netProfit)}`;
-      } else if (lower.includes('inventory') || lower.includes('stock') || lower.includes('product')) {
-        const totalItems = allVarieties.reduce((sum, v) => sum + v.qty, 0);
-        aiResponse = `📦 **Inventory Status:** You currently have **${allVarieties.length} variety(ies)** with a total of **${totalItems} stock unit(s)**. Valuation: ${formatCurrency(inventoryRevenue)}.`;
       } else {
-        aiResponse = `I have analyzed your **${selectedBranch}** account. Your current Net Audited Profit is **${formatCurrency(netProfit)}** on **${formatCurrency(totalRevenue)}** total revenue.`;
+        aiResponse = `Analyzing **${activeStore.name}**: Your live Net Profit is **${formatCurrency(netProfit)}** on **${formatCurrency(totalRevenue)}** total revenue.`;
       }
 
       setChatMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
@@ -238,29 +290,34 @@ export default function DashboardPage() {
   const handleSimulatePOSSale = () => {
     if (userRole === 'INVESTOR') return;
     setIsMenuOpen(false);
-    const allVars = inventoryGroups.flatMap(g => g.varieties);
+    const allVars = activeStore.inventoryGroups.flatMap(g => g.varieties);
     if (allVars.length === 0) {
-      setPosNotice("Please add items to your inventory catalog first before running POS sales simulation!");
+      setPosNotice(`Please add items to ${activeStore.name} catalog first before running POS sales simulation!`);
       setTimeout(() => setPosNotice(""), 4000);
       return;
     }
 
     const targetItem = allVars.find(v => v.qty > 0);
     if (!targetItem) {
-      setPosNotice("All inventory stock is currently out of stock!");
+      setPosNotice("All inventory stock in this store is currently out of stock!");
       setTimeout(() => setPosNotice(""), 4000);
       return;
     }
 
-    setInventoryGroups(prev => prev.map(g => ({
-      ...g,
-      varieties: g.varieties.map(v => v.id === targetItem.id ? { ...v, qty: Math.max(0, v.qty - 1) } : v)
-    })));
+    setStores(prev => prev.map(s => {
+      if (s.id !== activeStoreId) return s;
+      return {
+        ...s,
+        posSalesRevenue: s.posSalesRevenue + targetItem.sellingPrice,
+        posSalesCOGS: s.posSalesCOGS + targetItem.costPrice,
+        inventoryGroups: s.inventoryGroups.map(g => ({
+          ...g,
+          varieties: g.varieties.map(v => v.id === targetItem.id ? { ...v, qty: Math.max(0, v.qty - 1) } : v)
+        }))
+      };
+    }));
 
-    setPosSalesRevenue(prev => prev + targetItem.sellingPrice);
-    setPosSalesCOGS(prev => prev + targetItem.costPrice);
-
-    setPosNotice(`POS Sale Executed: 1x ${targetItem.varietyName} sold for ${formatCurrency(targetItem.sellingPrice)}!`);
+    setPosNotice(`POS Sale Executed at ${activeStore.name}: 1x ${targetItem.varietyName} sold for ${formatCurrency(targetItem.sellingPrice)}!`);
     setTimeout(() => setPosNotice(""), 4000);
   };
 
@@ -282,9 +339,13 @@ export default function DashboardPage() {
         discrepancyNote: ocrResult.notes
       };
 
-      setReceipts(prev => [newReceipt, ...prev]);
+      setStores(prev => prev.map(s => {
+        if (s.id !== activeStoreId) return s;
+        return { ...s, receipts: [newReceipt, ...s.receipts] };
+      }));
+
       setIsProcessingUpload(false);
-      setUploadSuccessMsg("Receipt successfully parsed via AI OCR & factored into live P&L!");
+      setUploadSuccessMsg(`Receipt parsed & added to ${activeStore.name} P&L!`);
     }, 1200);
   };
 
@@ -301,21 +362,22 @@ export default function DashboardPage() {
       sellingPrice: Number(newPrice)
     };
 
-    setInventoryGroups(prev => {
-      const existingGroupIndex = prev.findIndex(g => g.groupName.toLowerCase() === newGroupName.toLowerCase());
-      if (existingGroupIndex > -1) {
-        const updated = [...prev];
-        updated[existingGroupIndex].varieties.push(newVariety);
-        return updated;
+    setStores(prev => prev.map(s => {
+      if (s.id !== activeStoreId) return s;
+      const groups = [...s.inventoryGroups];
+      const gIndex = groups.findIndex(g => g.groupName.toLowerCase() === newGroupName.toLowerCase());
+      if (gIndex > -1) {
+        groups[gIndex].varieties.push(newVariety);
       } else {
-        return [...prev, {
+        groups.push({
           id: `grp-${Date.now()}`,
           groupName: newGroupName,
           category: newCategory,
           varieties: [newVariety]
-        }];
+        });
       }
-    });
+      return { ...s, inventoryGroups: groups };
+    }));
 
     setNewVarietyName("");
     setNewBarcode("");
@@ -333,7 +395,11 @@ export default function DashboardPage() {
       date: new Date().toISOString().split('T')[0]
     };
 
-    setExpenses(prev => [newExp, ...prev]);
+    setStores(prev => prev.map(s => {
+      if (s.id !== activeStoreId) return s;
+      return { ...s, expenses: [newExp, ...s.expenses] };
+    }));
+
     setShowExpenseModal(false);
   };
 
@@ -350,18 +416,26 @@ export default function DashboardPage() {
       date: new Date().toISOString().split('T')[0]
     };
 
-    setShrinkageLogs(prev => [newShrink, ...prev]);
+    setStores(prev => prev.map(s => {
+      if (s.id !== activeStoreId) return s;
+      return { ...s, shrinkageLogs: [newShrink, ...s.shrinkageLogs] };
+    }));
+
     setShowShrinkageModal(false);
   };
 
   const handleDeleteVariety = (groupId: string, varietyId: string) => {
     if (userRole === 'INVESTOR') return;
-    setInventoryGroups(prev => 
-      prev.map(g => g.id === groupId ? {
-        ...g,
-        varieties: g.varieties.filter(v => v.id !== varietyId)
-      } : g).filter(g => g.varieties.length > 0)
-    );
+    setStores(prev => prev.map(s => {
+      if (s.id !== activeStoreId) return s;
+      return {
+        ...s,
+        inventoryGroups: s.inventoryGroups.map(g => g.id === groupId ? {
+          ...g,
+          varieties: g.varieties.filter(v => v.id !== varietyId)
+        } : g).filter(g => g.varieties.length > 0)
+      };
+    }));
   };
 
   const handleExportPDF = () => {
@@ -372,7 +446,7 @@ export default function DashboardPage() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>MY-AUDITOR Executive Audit Report - ${selectedBranch}</title>
+          <title>MY-AUDITOR Executive Audit Report - ${activeStore.name}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 30px; color: #111; }
             h1 { color: #059669; margin-bottom: 5px; }
@@ -386,7 +460,7 @@ export default function DashboardPage() {
         <body>
           <h1>MY-AUDITOR Executive Audit Summary</h1>
           <div class="meta">
-            <strong>Branch:</strong> ${selectedBranch} | <strong>Role Mode:</strong> ${userRole} | <strong>Date:</strong> ${new Date().toLocaleDateString()}
+            <strong>Store:</strong> ${activeStore.name} (${activeStore.address}) | <strong>Role:</strong> ${userRole} | <strong>Date:</strong> ${new Date().toLocaleDateString()}
           </div>
           <div class="grid">
             <div class="card"><h3>Total Revenue</h3><p>${formatCurrency(totalRevenue)}</p></div>
@@ -401,7 +475,7 @@ export default function DashboardPage() {
     printWindow.document.close();
   };
 
-  const allVarieties = inventoryGroups.flatMap(g => g.varieties);
+  const allVarieties = activeStore.inventoryGroups.flatMap(g => g.varieties);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative pb-20">
@@ -463,6 +537,51 @@ export default function DashboardPage() {
         onChange={handleFileUpload}
       />
 
+      {/* New Store Branch Creation Modal */}
+      {showNewStoreModal && (
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                <Store className="w-4 h-4 text-emerald-400" /> Create New Store Branch
+              </h3>
+              <button onClick={() => setShowNewStoreModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateNewStore} className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Store Branch Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Ikeja Branch"
+                  value={newStoreNameInput}
+                  onChange={e => setNewStoreNameInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Location / Address</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Allen Avenue, Ikeja"
+                  value={newStoreLocationInput}
+                  onChange={e => setNewStoreLocationInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Create Store Branch
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Live WebRTC Camera Modal */}
       {isCameraActive && (
         <div className="fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-between p-4 backdrop-blur-md">
@@ -499,7 +618,7 @@ export default function DashboardPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center pb-3 border-b border-slate-800">
               <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                <Plus className="w-4 h-4 text-emerald-400" /> Add New Inventory Variety
+                <Plus className="w-4 h-4 text-emerald-400" /> Add Product to {activeStore.name}
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -593,7 +712,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center pb-3 border-b border-slate-800">
-              <h3 className="font-bold text-white text-sm">Log Operational Expense</h3>
+              <h3 className="font-bold text-white text-sm">Log Expense for {activeStore.name}</h3>
               <button onClick={() => setShowExpenseModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -633,7 +752,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center pb-3 border-b border-slate-800">
-              <h3 className="font-bold text-white text-sm">Report Stock Shrinkage</h3>
+              <h3 className="font-bold text-white text-sm">Report Shrinkage ({activeStore.name})</h3>
               <button onClick={() => setShowShrinkageModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -697,19 +816,27 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store Controls</p>
+                <div className="flex justify-between items-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Store Branch</p>
+                  <button
+                    onClick={() => { setIsMenuOpen(false); setShowNewStoreModal(true); }}
+                    className="text-[11px] font-bold text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" /> Add Branch
+                  </button>
+                </div>
+                
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Select Branch</label>
                   <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
-                    <Building2 className="w-4 h-4 text-emerald-400" />
+                    <Store className="w-4 h-4 text-emerald-400" />
                     <select 
-                      value={selectedBranch}
-                      onChange={(e) => setSelectedBranch(e.target.value)}
+                      value={activeStoreId}
+                      onChange={(e) => setSelectedBranch && setActiveStoreId(e.target.value)}
                       className="bg-transparent text-xs text-slate-200 w-full focus:outline-none cursor-pointer"
                     >
-                      <option value="Downtown Flagship" className="bg-slate-900">Downtown Flagship</option>
-                      <option value="Westside Mall" className="bg-slate-900">Westside Mall</option>
-                      <option value="Eastside Hub" className="bg-slate-900">Eastside Hub</option>
+                      {stores.map(s => (
+                        <option key={s.id} value={s.id} className="bg-slate-900">{s.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -773,7 +900,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs font-semibold flex items-center gap-2">
                     <Lock className="w-4 h-4 shrink-0 text-amber-400" />
-                    <span>Investor Mode: Store editing is locked for read-only audit transparency.</span>
+                    <span>Investor Mode: Read-only audit mode active.</span>
                   </div>
                 )}
 
@@ -787,7 +914,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v3.0 • Clean Production State</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v3.1 • Multi-Store Active</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
@@ -795,10 +922,26 @@ export default function DashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
         
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+              <Store className="w-6 h-6 text-emerald-400" /> {activeStore.name}
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">{activeStore.address} • Multi-Store Branch</p>
+          </div>
+
+          <button
+            onClick={() => setShowNewStoreModal(true)}
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Add Store Branch
+          </button>
+        </div>
+
         {userRole === 'INVESTOR' && (
           <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl text-amber-300 text-xs font-bold flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-400" /> Investor Mode Active — Viewing {selectedBranch} Data
+              <Lock className="w-4 h-4 text-amber-400" /> Investor Mode Active — Viewing {activeStore.name} Data
             </span>
             <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded text-amber-200">Read-Only</span>
           </div>
@@ -831,7 +974,7 @@ export default function DashboardPage() {
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Sales & Revenue</p>
             <p className="text-2xl sm:text-3xl font-black text-white mt-1">{formatCurrency(totalRevenue)}</p>
-            <p className="text-[11px] text-emerald-400 mt-1">POS Sales: {formatCurrency(posSalesRevenue)}</p>
+            <p className="text-[11px] text-emerald-400 mt-1">POS Sales: {formatCurrency(activeStore.posSalesRevenue)}</p>
           </div>
           <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Gross Profit</p>
@@ -855,7 +998,7 @@ export default function DashboardPage() {
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <LineChart className="w-4 h-4 text-emerald-400" /> Real-Time P&L & Margins Trend Chart
+              <LineChart className="w-4 h-4 text-emerald-400" /> Real-Time P&L Trend Chart ({activeStore.name})
             </h3>
             <div className="flex items-center gap-4 text-[11px] text-slate-400">
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span> Revenue</span>
@@ -898,7 +1041,7 @@ export default function DashboardPage() {
                   <UploadCloud className="w-5 h-5 text-emerald-400" /> AI OCR Receipt Scanner & Auto-Auditor
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Upload invoice files or use live camera to parse physical paper receipts via AI OCR.
+                  Upload invoice files or use live camera to parse physical paper receipts into {activeStore.name}.
                 </p>
               </div>
 
@@ -949,7 +1092,7 @@ export default function DashboardPage() {
 
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Live Inventory Catalog</h3>
+            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">{activeStore.name} Inventory Catalog</h3>
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500">{allVarieties.length} Varieties Active</span>
               {userRole === 'ADMIN' && (
@@ -964,14 +1107,14 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {inventoryGroups.length === 0 ? (
+          {activeStore.inventoryGroups.length === 0 ? (
             <div className="text-center py-12 bg-slate-950/50 rounded-2xl border border-dashed border-slate-800">
-              <p className="text-xs font-bold text-slate-400">No products in your store catalog yet.</p>
-              <p className="text-[11px] text-slate-600 mt-1">Click <span className="text-emerald-400 font-semibold">"Add Inventory"</span> or scan a receipt to populate your catalog.</p>
+              <p className="text-xs font-bold text-slate-400">No products in {activeStore.name} catalog yet.</p>
+              <p className="text-[11px] text-slate-600 mt-1">Click <span className="text-emerald-400 font-semibold">"Add Inventory"</span> or scan a receipt to add items.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {inventoryGroups.map(group => (
+              {activeStore.inventoryGroups.map(group => (
                 <div key={group.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800">
                   <h4 className="text-xs font-bold text-emerald-400 mb-3">{group.groupName} <span className="text-slate-500 font-normal">({group.category})</span></h4>
                   <div className="overflow-x-auto">
