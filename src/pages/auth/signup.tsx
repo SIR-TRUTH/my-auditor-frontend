@@ -24,7 +24,7 @@ export default function SignupPage() {
     setInfoMsg('');
 
     if (!legalName || !email || !phone || !password) {
-      setErrorMsg('Please fill in all required registration fields.');
+      setErrorMsg('Please complete all required fields.');
       return;
     }
 
@@ -33,7 +33,7 @@ export default function SignupPage() {
     const phoneExists = existingUsers.some((u: any) => u.phone === phone);
 
     if (emailExists) {
-      setErrorMsg('An account with this email address already exists. Please sign in instead.');
+      setErrorMsg('An account with this email address already exists. Please sign in.');
       return;
     }
 
@@ -48,16 +48,20 @@ export default function SignupPage() {
     setGeneratedOtp(code);
 
     try {
-      await fetch('/api/auth/send-otp', {
+      const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otpCode: code })
       });
 
-      setInfoMsg(`A 6-digit verification code has been sent to ${email}. Please check your inbox or spam folder.`);
+      if (!res.ok) {
+        throw new Error('Failed to send OTP email.');
+      }
+
+      setInfoMsg(`A 6-digit security code has been sent to ${email}. Please check your inbox or spam folder.`);
       setStep('OTP');
     } catch (err) {
-      setErrorMsg('Failed to send verification email. Please try again.');
+      setErrorMsg('Unable to dispatch verification email. Please verify your email address.');
     } finally {
       setIsLoading(false);
     }
@@ -112,10 +116,10 @@ export default function SignupPage() {
             <span className="text-2xl font-black tracking-wider text-white">MY-AUDITOR</span>
           </Link>
           <h1 className="text-lg font-bold text-slate-200 mt-2">
-            {step === 'DETAILS' ? 'Create Your Enterprise Account' : 'Verify Email Address'}
+            {step === 'DETAILS' ? 'Create Enterprise Account' : 'Security Email Verification'}
           </h1>
           <p className="text-xs text-slate-400">
-            {step === 'DETAILS' ? 'Enter your details to generate an email verification OTP code' : `Enter the 6-digit code sent to ${email}`}
+            {step === 'DETAILS' ? 'Enter your details to generate your security OTP' : `Enter the 6-digit code sent to ${email}`}
           </p>
         </div>
 
@@ -200,20 +204,20 @@ export default function SignupPage() {
               disabled={isLoading}
               className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
-              {isLoading ? 'Sending OTP Code...' : 'Send Verification OTP'} <ArrowRight className="w-4 h-4" />
+              {isLoading ? 'Sending Security Code...' : 'Send Verification OTP'} <ArrowRight className="w-4 h-4" />
             </button>
           </form>
         ) : (
           <form onSubmit={handleVerifyOtpAndSignup} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-slate-400 block mb-1">Enter 6-Digit OTP Code</label>
+              <label className="text-xs font-medium text-slate-400 block mb-1">Enter 6-Digit Security Code</label>
               <input
                 type="text"
                 required
                 maxLength={6}
                 value={enteredOtp}
                 onChange={e => setEnteredOtp(e.target.value)}
-                placeholder="123456"
+                placeholder="••••••"
                 className="w-full bg-slate-950 border border-slate-800 text-center text-xl tracking-[8px] font-black rounded-xl py-3 text-emerald-400 focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -231,7 +235,7 @@ export default function SignupPage() {
                 disabled={isLoading}
                 className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition cursor-pointer"
               >
-                {isLoading ? 'Verifying...' : 'Verify & Complete Signup'}
+                {isLoading ? 'Verifying...' : 'Verify & Create Account'}
               </button>
             </div>
           </form>
