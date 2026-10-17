@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   ShieldCheck, 
@@ -23,7 +23,8 @@ import {
   Menu,
   MessageSquare,
   Send,
-  Bot
+  Bot,
+  Lock
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
 import { parseReceiptImageText } from "../../lib/ocrParser";
@@ -84,6 +85,69 @@ const CURRENCIES: Record<string, CurrencyOption> = {
   KES: { code: 'KES', symbol: 'Ksh', rate: 130 }
 };
 
+// Branch-specific preset data for Investor & Executive Demo Mode
+const BRANCH_PRESETS: Record<string, {
+  groups: ProductGroup[];
+  receipts: Receipt[];
+  posRevenue: number;
+  posCOGS: number;
+}> = {
+  "Downtown Flagship": {
+    groups: [
+      {
+        id: 'grp-1',
+        groupName: 'Beverages & Soft Drinks',
+        category: 'FMCG',
+        varieties: [
+          { id: 'v-1', barcode: '893001', varietyName: 'Coca-Cola 50cl Case', qty: 45, costPrice: 3500, sellingPrice: 5000 },
+          { id: 'v-2', barcode: '893002', varietyName: 'Pepsi 50cl Case', qty: 30, costPrice: 3200, sellingPrice: 4800 }
+        ]
+      }
+    ],
+    receipts: [
+      { id: 'REC-101', store: 'Global FMCG Distributors', date: '2026-10-15', total: 450000, status: 'Parsed', items: 12 },
+      { id: 'REC-102', store: 'Metro Wholesale Ltd', date: '2026-10-16', total: 620000, status: 'Discrepancy', items: 18, discrepancyNote: 'AI Audit: Unit price +18% above benchmark' }
+    ],
+    posRevenue: 1250000,
+    posCOGS: 780000
+  },
+  "Westside Mall": {
+    groups: [
+      {
+        id: 'grp-2',
+        groupName: 'Electronics & Accessories',
+        category: 'Retail Hardware',
+        varieties: [
+          { id: 'v-3', barcode: '992010', varietyName: 'USB-C Fast Charger 65W', qty: 20, costPrice: 8500, sellingPrice: 15000 },
+          { id: 'v-4', barcode: '992011', varietyName: 'Wireless Bluetooth Earbuds', qty: 15, costPrice: 14000, sellingPrice: 25000 }
+        ]
+      }
+    ],
+    receipts: [
+      { id: 'REC-201', store: 'Apex Supply Corp', date: '2026-10-14', total: 890000, status: 'Parsed', items: 25 }
+    ],
+    posRevenue: 2400000,
+    posCOGS: 1350000
+  },
+  "Eastside Hub": {
+    groups: [
+      {
+        id: 'grp-3',
+        groupName: 'Dairy & Provisions',
+        category: 'Perishables',
+        varieties: [
+          { id: 'v-5', barcode: '771001', varietyName: 'Full Cream Milk 1L Pack', qty: 60, costPrice: 1200, sellingPrice: 2000 }
+        ]
+      }
+    ],
+    receipts: [
+      { id: 'REC-301', store: 'Prime Logistics & Retail', date: '2026-10-16', total: 310000, status: 'Discrepancy', items: 8, discrepancyNote: 'AI Audit: Supplier invoice total mismatch' }
+    ],
+    posRevenue: 980000,
+    posCOGS: 590000
+  }
+};
+
 export default function DashboardPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState("Downtown Flagship");
@@ -98,12 +162,14 @@ export default function DashboardPage() {
 
   const currentCurrency = CURRENCIES[currencyKey] || CURRENCIES.NGN;
 
-  const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>([]);
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+  const [inventoryGroups, setInventoryGroups] = useState<ProductGroup[]>(BRANCH_PRESETS["Downtown Flagship"].groups);
+  const [receipts, setReceipts] = useState<Receipt[]>(BRANCH_PRESETS["Downtown Flagship"].receipts);
+  const [expenses, setExpenses] = useState<ExpenseItem[]>([
+    { id: 'exp-1', category: 'Store Utilities & Power', amount: 85000, date: '2026-10-15' }
+  ]);
   const [shrinkageLogs, setShrinkageLogs] = useState<ShrinkageItem[]>([]);
-  const [posSalesRevenue, setPosSalesRevenue] = useState(0);
-  const [posSalesCOGS, setPosSalesCOGS] = useState(0);
+  const [posSalesRevenue, setPosSalesRevenue] = useState(BRANCH_PRESETS["Downtown Flagship"].posRevenue);
+  const [posSalesCOGS, setPosSalesCOGS] = useState(BRANCH_PRESETS["Downtown Flagship"].posCOGS);
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -112,24 +178,21 @@ export default function DashboardPage() {
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState("");
   const [posNotice, setPosNotice] = useState("");
 
+  // Switch Branch Data Preset
+  useEffect(() => {
+    const preset = BRANCH_PRESETS[selectedBranch];
+    if (preset) {
+      setInventoryGroups(preset.groups);
+      setReceipts(preset.receipts);
+      setPosSalesRevenue(preset.posRevenue);
+      setPosSalesCOGS(preset.posCOGS);
+    }
+  }, [selectedBranch]);
+
   // Live Camera WebRTC State
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-
-  const [newVarietyName, setNewVarietyName] = useState("");
-  const [newBarcode, setNewBarcode] = useState("");
-  const [newQty, setNewQty] = useState(15);
-  const [newCost, setNewCost] = useState(2500);
-  const [newPrice, setNewPrice] = useState(5000);
-
-  const [expenseCat, setExpenseCat] = useState("Store Utilities");
-  const [expenseAmt, setExpenseAmt] = useState(75000);
-
-  const [shrinkName, setShrinkName] = useState("Damaged Stock");
-  const [shrinkQty, setShrinkQty] = useState(2);
-  const [shrinkCostVal, setShrinkCostVal] = useState(5000);
-  const [shrinkReason, setShrinkReason] = useState("Spoilage / Expired");
 
   const formatCurrency = (val: number) => {
     return `${currentCurrency.symbol}${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -163,6 +226,7 @@ export default function DashboardPage() {
 
   // Live Camera Trigger
   const startLiveCamera = async () => {
+    if (userRole === 'INVESTOR') return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } }
@@ -205,31 +269,12 @@ export default function DashboardPage() {
         aiResponse = "You can change global currencies anytime using the top-right currency dropdown (₦ NGN, $ USD, € EUR, £ GBP, Ksh KES).";
       } else if (lower.includes('leakage') || lower.includes('spike') || lower.includes('anomaly')) {
         aiResponse = "Supplier price spikes above 15% are automatically flagged by our AI Anomaly Detector and deducted from Net Profit as leakage.";
-      } else if (lower.includes('report') || lower.includes('pdf') || lower.includes('export')) {
-        aiResponse = "Click the 'PDF Report' option in the left Action Hub menu to print or save an executive summary PDF.";
+      } else if (lower.includes('investor') || lower.includes('read-only') || lower.includes('branch')) {
+        aiResponse = "In Investor Mode, editing is locked to preserve store data integrity while allowing full financial audit visibility across all branches.";
       }
       setChatMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
     }, 800);
   };
-
-  const supplierStats = receipts.reduce((acc, r) => {
-    const name = r.store;
-    if (!acc[name]) {
-      acc[name] = { total: 0, flagged: 0, spend: 0 };
-    }
-    acc[name].total += 1;
-    if (r.status === 'Discrepancy') acc[name].flagged += 1;
-    acc[name].spend += r.total;
-    return acc;
-  }, {} as Record<string, { total: number; flagged: number; spend: number }>);
-
-  const supplierList = Object.entries(supplierStats).map(([name, stat]) => ({
-    name,
-    total: stat.total,
-    flagged: stat.flagged,
-    spend: stat.spend,
-    riskScore: Math.round((stat.flagged / stat.total) * 100)
-  }));
 
   const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const chartPoints = chartDays.map((day, idx) => {
@@ -342,14 +387,6 @@ export default function DashboardPage() {
             <div class="card"><h3>Net Audited Profit</h3><p style="color: ${netProfit >= 0 ? '#059669' : '#dc2626'}">${formatCurrency(netProfit)}</p></div>
           </div>
 
-          <h3>Active Suppliers & Risk Directory</h3>
-          <table>
-            <tr><th>Supplier Name</th><th>Invoices Ingested</th><th>Flagged Anomalies</th><th>Total Spend</th></tr>
-            ${supplierList.length === 0 ? '<tr><td colspan="4">No suppliers logged yet.</td></tr>' : supplierList.map(s => `
-              <tr><td>${s.name}</td><td>${s.total}</td><td>${s.flagged}</td><td>${formatCurrency(s.spend)}</td></tr>
-            `).join('')}
-          </table>
-
           <script>window.print();</script>
         </body>
       </html>
@@ -358,9 +395,6 @@ export default function DashboardPage() {
   };
 
   const allVarieties = inventoryGroups.flatMap(g => g.varieties);
-  const sortedVarieties = [...allVarieties].sort((a, b) => (b.sellingPrice - b.costPrice) - (a.sellingPrice - a.costPrice));
-  const topPerformers = sortedVarieties.slice(0, 3);
-  const underperformers = sortedVarieties.slice(-3).reverse();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative pb-20">
@@ -401,7 +435,11 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            <span className="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-3 py-1 rounded-xl border border-emerald-500/30">
+            <span className={`text-xs font-bold px-3 py-1 rounded-xl border ${
+              userRole === 'INVESTOR' 
+                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            }`}>
               {userRole}
             </span>
           </div>
@@ -468,13 +506,13 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store Controls</p>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Branch</label>
+                  <label className="text-xs text-slate-400 block mb-1">Select Branch</label>
                   <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
                     <Building2 className="w-4 h-4 text-emerald-400" />
                     <select 
                       value={selectedBranch}
                       onChange={(e) => setSelectedBranch(e.target.value)}
-                      className="bg-transparent text-xs text-slate-200 w-full focus:outline-none"
+                      className="bg-transparent text-xs text-slate-200 w-full focus:outline-none cursor-pointer"
                     >
                       <option value="Downtown Flagship" className="bg-slate-900">Downtown Flagship</option>
                       <option value="Westside Mall" className="bg-slate-900">Westside Mall</option>
@@ -490,11 +528,11 @@ export default function DashboardPage() {
                     <select
                       value={userRole}
                       onChange={(e) => setUserRole(e.target.value as any)}
-                      className="bg-transparent text-xs text-emerald-400 font-bold w-full focus:outline-none"
+                      className="bg-transparent text-xs text-emerald-400 font-bold w-full focus:outline-none cursor-pointer"
                     >
                       <option value="ADMIN" className="bg-slate-900 text-white">ADMIN</option>
                       <option value="AUDITOR" className="bg-slate-900 text-white">AUDITOR</option>
-                      <option value="INVESTOR" className="bg-slate-900 text-white">INVESTOR (Read-Only)</option>
+                      <option value="INVESTOR" className="bg-slate-900 text-white">INVESTOR (Read-Only Demo)</option>
                     </select>
                   </div>
                 </div>
@@ -503,7 +541,7 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Actions Grid</p>
                 
-                {userRole !== 'INVESTOR' && (
+                {userRole !== 'INVESTOR' ? (
                   <div className="grid grid-cols-1 gap-2">
                     <button
                       type="button"
@@ -528,16 +566,11 @@ export default function DashboardPage() {
                     >
                       <DollarSign className="w-4 h-4 text-emerald-400" /> Log Operational Expense
                     </button>
-
-                    {userRole === 'ADMIN' && (
-                      <button
-                        type="button"
-                        onClick={() => { setIsMenuOpen(false); setShowAddModal(true); }}
-                        className="w-full p-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" /> Add Inventory Variety
-                      </button>
-                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs font-semibold flex items-center gap-2">
+                    <Lock className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>Investor Mode: Store editing is locked for read-only audit transparency.</span>
                   </div>
                 )}
 
@@ -551,7 +584,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.5 • Enterprise Security Active</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.6 • Multi-Branch Audit Active</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
@@ -559,6 +592,15 @@ export default function DashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
         
+        {userRole === 'INVESTOR' && (
+          <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl text-amber-300 text-xs font-bold flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-400" /> Investor Mode Active — Viewing {selectedBranch} Data
+            </span>
+            <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded text-amber-200">Read-Only</span>
+          </div>
+        )}
+
         {posNotice && (
           <div className="bg-teal-500/10 border border-teal-500/30 p-3 rounded-xl text-teal-300 text-xs font-bold flex items-center gap-2">
             <ShoppingBag className="w-4 h-4 shrink-0" />
