@@ -85,7 +85,6 @@ const CURRENCIES: Record<string, CurrencyOption> = {
   KES: { code: 'KES', symbol: 'Ksh', rate: 130 }
 };
 
-// Branch-specific preset data for Investor & Executive Demo Mode
 const BRANCH_PRESETS: Record<string, {
   groups: ProductGroup[];
   receipts: Receipt[];
@@ -178,7 +177,25 @@ export default function DashboardPage() {
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState("");
   const [posNotice, setPosNotice] = useState("");
 
-  // Switch Branch Data Preset
+  // New Item form state
+  const [newGroupName, setNewGroupName] = useState("Beverages & Soft Drinks");
+  const [newCategory, setNewCategory] = useState("FMCG");
+  const [newVarietyName, setNewVarietyName] = useState("");
+  const [newBarcode, setNewBarcode] = useState("");
+  const [newQty, setNewQty] = useState(25);
+  const [newCost, setNewCost] = useState(3000);
+  const [newPrice, setNewPrice] = useState(4500);
+
+  // Expense form state
+  const [expenseCat, setExpenseCat] = useState("Store Utilities");
+  const [expenseAmt, setExpenseAmt] = useState(50000);
+
+  // Shrinkage form state
+  const [shrinkName, setShrinkName] = useState("Damaged Stock");
+  const [shrinkQty, setShrinkQty] = useState(1);
+  const [shrinkCostVal, setShrinkCostVal] = useState(3000);
+  const [shrinkReason, setShrinkReason] = useState("Spoilage");
+
   useEffect(() => {
     const preset = BRANCH_PRESETS[selectedBranch];
     if (preset) {
@@ -189,7 +206,6 @@ export default function DashboardPage() {
     }
   }, [selectedBranch]);
 
-  // Live Camera WebRTC State
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -224,7 +240,6 @@ export default function DashboardPage() {
   const totalShrinkageLoss = shrinkageLogs.reduce((sum, s) => sum + s.totalValue, 0);
   const netProfit = grossProfit - totalExpenses - totalShrinkageLoss - anomalyResult.totalDiscrepancyAmount;
 
-  // Live Camera Trigger
   const startLiveCamera = async () => {
     if (userRole === 'INVESTOR') return;
     try {
@@ -265,12 +280,10 @@ export default function DashboardPage() {
     setTimeout(() => {
       let aiResponse = "I can help with that! MY-AUDITOR automatically reconciles inventory COGS, supplier price spikes, and POS shrinkage in real time.";
       const lower = query.toLowerCase();
-      if (lower.includes('currency') || lower.includes('naira') || lower.includes('dollar')) {
-        aiResponse = "You can change global currencies anytime using the top-right currency dropdown (₦ NGN, $ USD, € EUR, £ GBP, Ksh KES).";
-      } else if (lower.includes('leakage') || lower.includes('spike') || lower.includes('anomaly')) {
-        aiResponse = "Supplier price spikes above 15% are automatically flagged by our AI Anomaly Detector and deducted from Net Profit as leakage.";
-      } else if (lower.includes('investor') || lower.includes('read-only') || lower.includes('branch')) {
-        aiResponse = "In Investor Mode, editing is locked to preserve store data integrity while allowing full financial audit visibility across all branches.";
+      if (lower.includes('inventory') || lower.includes('product') || lower.includes('add')) {
+        aiResponse = "You can add inventory varieties anytime using the Action Hub menu on the top left!";
+      } else if (lower.includes('currency') || lower.includes('naira')) {
+        aiResponse = "You can change currencies using the top right currency selector (₦ NGN, $ USD, € EUR, £ GBP, Ksh KES).";
       }
       setChatMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
     }, 800);
@@ -342,6 +355,72 @@ export default function DashboardPage() {
     }, 1200);
   };
 
+  const handleAddInventorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVarietyName || !newBarcode) return;
+
+    const newVariety: ProductVariety = {
+      id: `v-${Date.now()}`,
+      barcode: newBarcode,
+      varietyName: newVarietyName,
+      qty: Number(newQty),
+      costPrice: Number(newCost),
+      sellingPrice: Number(newPrice)
+    };
+
+    setInventoryGroups(prev => {
+      const existingGroupIndex = prev.findIndex(g => g.groupName.toLowerCase() === newGroupName.toLowerCase());
+      if (existingGroupIndex > -1) {
+        const updated = [...prev];
+        updated[existingGroupIndex].varieties.push(newVariety);
+        return updated;
+      } else {
+        return [...prev, {
+          id: `grp-${Date.now()}`,
+          groupName: newGroupName,
+          category: newCategory,
+          varieties: [newVariety]
+        }];
+      }
+    });
+
+    setNewVarietyName("");
+    setNewBarcode("");
+    setShowAddModal(false);
+  };
+
+  const handleAddExpenseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expenseAmt) return;
+
+    const newExp: ExpenseItem = {
+      id: `exp-${Date.now()}`,
+      category: expenseCat,
+      amount: Number(expenseAmt),
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    setExpenses(prev => [newExp, ...prev]);
+    setShowExpenseModal(false);
+  };
+
+  const handleAddShrinkageSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const totalVal = Number(shrinkQty) * Number(shrinkCostVal);
+
+    const newShrink: ShrinkageItem = {
+      id: `shk-${Date.now()}`,
+      itemName: shrinkName,
+      qtyLost: Number(shrinkQty),
+      totalValue: totalVal,
+      reason: shrinkReason,
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    setShrinkageLogs(prev => [newShrink, ...prev]);
+    setShowShrinkageModal(false);
+  };
+
   const handleDeleteVariety = (groupId: string, varietyId: string) => {
     if (userRole === 'INVESTOR') return;
     setInventoryGroups(prev => 
@@ -369,9 +448,6 @@ export default function DashboardPage() {
             .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #f9fafb; }
             .card h3 { margin: 0 0 5px 0; font-size: 12px; color: #666; text-transform: uppercase; }
             .card p { margin: 0; font-size: 20px; font-weight: bold; color: #111; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background: #f3f4f6; }
           </style>
         </head>
         <body>
@@ -486,6 +562,192 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Add Inventory Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                <Plus className="w-4 h-4 text-emerald-400" /> Add New Inventory Variety
+              </h3>
+              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddInventorySubmit} className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Group Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newGroupName}
+                  onChange={e => setNewGroupName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Category</label>
+                <input
+                  type="text"
+                  required
+                  value={newCategory}
+                  onChange={e => setNewCategory(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Variety Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newVarietyName}
+                  onChange={e => setNewVarietyName(e.target.value)}
+                  placeholder="e.g. Sprite 50cl"
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Barcode</label>
+                <input
+                  type="text"
+                  required
+                  value={newBarcode}
+                  onChange={e => setNewBarcode(e.target.value)}
+                  placeholder="893003"
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">Stock Qty</label>
+                  <input
+                    type="number"
+                    value={newQty}
+                    onChange={e => setNewQty(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-2 py-2 text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">Cost Price</label>
+                  <input
+                    type="number"
+                    value={newCost}
+                    onChange={e => setNewCost(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-2 py-2 text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">Selling Price</label>
+                  <input
+                    type="number"
+                    value={newPrice}
+                    onChange={e => setNewPrice(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-2 py-2 text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full mt-2 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Save & Add to Catalog
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Expense Modal */}
+      {showExpenseModal && (
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+              <h3 className="font-bold text-white text-sm">Log Operational Expense</h3>
+              <button onClick={() => setShowExpenseModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddExpenseSubmit} className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Category</label>
+                <input
+                  type="text"
+                  value={expenseCat}
+                  onChange={e => setExpenseCat(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Amount</label>
+                <input
+                  type="number"
+                  value={expenseAmt}
+                  onChange={e => setExpenseAmt(Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Save Expense
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Report Shrinkage Modal */}
+      {showShrinkageModal && (
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+              <h3 className="font-bold text-white text-sm">Report Stock Shrinkage</h3>
+              <button onClick={() => setShowShrinkageModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddShrinkageSubmit} className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Item Name / Reason</label>
+                <input
+                  type="text"
+                  value={shrinkName}
+                  onChange={e => setShrinkName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">Qty Lost</label>
+                  <input
+                    type="number"
+                    value={shrinkQty}
+                    onChange={e => setShrinkQty(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-2 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">Unit Value Loss</label>
+                  <input
+                    type="number"
+                    value={shrinkCostVal}
+                    onChange={e => setShrinkCostVal(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-2 py-2 text-white"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-rose-500 text-slate-950 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Log Shrinkage Loss
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isMenuOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex">
           <div className="w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 h-full p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-200">
@@ -566,6 +828,16 @@ export default function DashboardPage() {
                     >
                       <DollarSign className="w-4 h-4 text-emerald-400" /> Log Operational Expense
                     </button>
+
+                    {userRole === 'ADMIN' && (
+                      <button
+                        type="button"
+                        onClick={() => { setIsMenuOpen(false); setShowAddModal(true); }}
+                        className="w-full p-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-lg"
+                      >
+                        <Plus className="w-4 h-4" /> Add Inventory Variety
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs font-semibold flex items-center gap-2">
@@ -584,7 +856,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.6 • Multi-Branch Audit Active</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.7 • Fully Restored</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
@@ -747,7 +1019,18 @@ export default function DashboardPage() {
         <div className="bg-slate-900/40 border border-slate-800 p-5 sm:p-6 rounded-2xl">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Live Inventory Catalog</h3>
-            <span className="text-xs text-slate-500">{allVarieties.length} Varieties Active</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500">{allVarieties.length} Varieties Active</span>
+              {userRole === 'ADMIN' && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(true)}
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Inventory
+                </button>
+              )}
+            </div>
           </div>
 
           {inventoryGroups.length === 0 ? (
