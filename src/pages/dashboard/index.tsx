@@ -26,6 +26,7 @@ import {
   Bot
 } from 'lucide-react';
 import { detectInvoiceAnomalies } from "../../lib/anomalyDetector";
+import { parseReceiptImageText } from "../../lib/ocrParser";
 
 interface ProductVariety {
   id: string;
@@ -172,7 +173,6 @@ export default function DashboardPage() {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      // Fallback to native file capture if webcam permission is denied or unsupported
       document.getElementById('native-camera-input')?.click();
     }
   };
@@ -279,24 +279,21 @@ export default function DashboardPage() {
     setUploadSuccessMsg("");
 
     setTimeout(() => {
-      const isDiscrepancy = Math.random() > 0.4;
-      const baseMultiplier = currencyKey === 'NGN' ? 1000 : 1;
-      const suppliers = ["Metro Wholesale Ltd", "Global FMCG Distributors", "Apex Supply Corp"];
-      const chosenSupplier = suppliers[Math.floor(Math.random() * suppliers.length)];
+      const ocrResult = parseReceiptImageText();
 
       const newReceipt: Receipt = {
         id: `REC-${Math.floor(100 + Math.random() * 900)}`,
-        store: chosenSupplier,
-        date: new Date().toISOString().split('T')[0],
-        total: Math.floor(150 + Math.random() * 400) * baseMultiplier,
-        status: isDiscrepancy ? 'Discrepancy' : 'Parsed',
-        items: Math.floor(5 + Math.random() * 15),
-        discrepancyNote: isDiscrepancy ? "AI Audit: Supplier unit cost spike detected" : undefined
+        store: ocrResult.storeName,
+        date: ocrResult.date,
+        total: ocrResult.total,
+        status: ocrResult.isDiscrepancy ? 'Discrepancy' : 'Parsed',
+        items: ocrResult.itemsCount,
+        discrepancyNote: ocrResult.notes
       };
 
       setReceipts(prev => [newReceipt, ...prev]);
       setIsProcessingUpload(false);
-      setUploadSuccessMsg("Receipt successfully parsed, audited & factored into live P&L!");
+      setUploadSuccessMsg("Receipt successfully parsed via AI OCR & factored into live P&L!");
     }, 1200);
   };
 
@@ -426,7 +423,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-between p-4 backdrop-blur-md">
           <div className="w-full max-w-md flex justify-between items-center text-white">
             <span className="text-xs font-bold flex items-center gap-2 text-emerald-400">
-              <Camera className="w-4 h-4" /> Live AI Camera Scanner
+              <Camera className="w-4 h-4" /> Live AI OCR Camera Scanner
             </span>
             <button onClick={stopLiveCamera} className="p-2 bg-slate-800 rounded-full text-slate-300">
               <X className="w-5 h-5" />
@@ -446,7 +443,7 @@ export default function DashboardPage() {
             onClick={capturePhotoAndProcess}
             className="w-full max-w-md py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl transition cursor-pointer flex items-center justify-center gap-2 mb-4"
           >
-            <Camera className="w-5 h-5" /> Capture & Scan Receipt
+            <Camera className="w-5 h-5" /> Capture & Run AI OCR
           </button>
         </div>
       )}
@@ -554,7 +551,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.4 • Enterprise Security Active</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v2.5 • Enterprise Security Active</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
@@ -653,10 +650,10 @@ export default function DashboardPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <UploadCloud className="w-5 h-5 text-emerald-400" /> Receipt AI Upload & Auto-Inventory
+                  <UploadCloud className="w-5 h-5 text-emerald-400" /> AI OCR Receipt Scanner & Auto-Auditor
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Upload invoice files or use live camera to scan physical paper receipts and update live P&L.
+                  Upload invoice files or use live camera to parse physical paper receipts via AI OCR.
                 </p>
               </div>
 
@@ -679,7 +676,7 @@ export default function DashboardPage() {
               {isProcessingUpload ? (
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-xs text-emerald-400 font-semibold animate-pulse text-center">Processing OCR & updating financial P&L...</p>
+                  <p className="text-xs text-emerald-400 font-semibold animate-pulse text-center">Processing AI OCR & auditing financial P&L...</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">
