@@ -167,7 +167,7 @@ export default function DashboardPage() {
   // Chat State
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ sender: 'ai' | 'user'; text: string }[]>([
-    { sender: 'ai', text: 'Hello! I am your MY-AUDITOR AI Financial Assistant. Ask me anything about your active store branches or consolidated margins.' }
+    { sender: 'ai', text: 'Hello! I am your MY-AUDITOR AI Forensic CPA. Ask me complex questions regarding your store margins, supplier invoice variances, inventory turnover, or expense burn rates.' }
   ]);
   const [userQuery, setUserQuery] = useState("");
 
@@ -258,6 +258,7 @@ export default function DashboardPage() {
     handleFileUpload();
   };
 
+  // Advanced CPA / Forensic AI Assistant Logic
   const handleSendAiMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userQuery.trim()) return;
@@ -267,24 +268,73 @@ export default function DashboardPage() {
     setUserQuery("");
 
     setTimeout(() => {
-      const lower = query.toLowerCase();
+      const lower = query.toLowerCase().trim();
       let aiResponse = "";
 
-      if (lower.includes('store') || lower.includes('branch') || lower.includes('type')) {
-        aiResponse = `🏬 Active store: **${activeStore.name}** (${activeStore.type}). You have **${stores.length} store branch(es)** configured.`;
-      } else if (lower.includes('margin') || lower.includes('profit') || lower.includes('net') || lower.includes('gross')) {
-        const marginPct = totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : '0';
-        aiResponse = `📊 **Live Financials (${activeStore.name}):**\n` +
-          `• Total Revenue: ${formatCurrency(totalRevenue)}\n` +
-          `• Gross Profit: ${formatCurrency(grossProfit)} (${marginPct}% Margin)\n` +
-          `• Total Expenses & Losses: ${formatCurrency(totalExpenses + totalShrinkageLoss + anomalyResult.totalDiscrepancyAmount)}\n` +
-          `• Net Audited Profit: ${formatCurrency(netProfit)}`;
-      } else {
-        aiResponse = `Analyzing **${activeStore.name}**: Your live Net Profit is **${formatCurrency(netProfit)}** on **${formatCurrency(totalRevenue)}** total revenue.`;
+      const marginPct = totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : '0';
+      const expenseRatio = totalRevenue > 0 ? ((totalExpenses / totalRevenue) * 100).toFixed(1) : '0';
+      const shrinkageRatio = totalRevenue > 0 ? ((totalShrinkageLoss / totalRevenue) * 100).toFixed(1) : '0';
+      const totalItemsCount = activeStore.inventoryGroups.reduce((acc, g) => acc + g.varieties.reduce((vAcc, v) => vAcc + v.qty, 0), 0);
+
+      // 1. Greetings & Onboarding Walkthrough
+      if (['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'sup'].includes(lower) || lower.startsWith('hi ') || lower.startsWith('hello ')) {
+        aiResponse = `👋 Hello! I am your MY-AUDITOR AI Forensic CPA. I am monitoring **${activeStore.name}** (${activeStore.type}). Ask me to run variance audits, analyze expense burn ratios, calculate break-even points, or audit supplier price spikes.`;
+      } 
+      else if (lower.includes('put me through') || lower.includes('how to use') || lower.includes('help') || lower.includes('guide')) {
+        aiResponse = `💡 **MY-AUDITOR Execution Guide:**\n` +
+          `1️⃣ **Catalog Setup:** Use 'Add Inventory Variety' in the Action Hub to set stock cost and selling prices.\n` +
+          `2️⃣ **Invoice Auditing:** Use the AI OCR Camera Scanner or upload paper receipts to auto-reconcile supplier pricing.\n` +
+          `3️⃣ **Financial Diagnostics:** Ask me complex queries like *"Audit my expense burn rate"*, *"What is my inventory valuation?"*, or *"Check supplier price variances"*.`;
+      } 
+      // 2. Complex Expense Burn Rate & Overhead Audit
+      else if (lower.includes('expense') || lower.includes('burn') || lower.includes('overhead') || lower.includes('cost')) {
+        aiResponse = `📉 **Overhead & Expense Audit (${activeStore.name}):**\n` +
+          `• Total Operating Expenses: **${formatCurrency(totalExpenses)}**\n` +
+          `• Expense-to-Revenue Ratio: **${expenseRatio}%** ${Number(expenseRatio) > 20 ? '⚠️ (High burn rate alert: exceeds 20% benchmark)' : '✅ (Healthy ratio)'}\n` +
+          `• Total COGS: **${formatCurrency(totalCOGS)}**\n` +
+          `Recommendation: Review utility and logistical overhead to protect gross margins.`;
+      } 
+      // 3. Inventory Shrinkage & Stock Audit
+      else if (lower.includes('shrinkage') || lower.includes('theft') || lower.includes('loss') || lower.includes('damage') || lower.includes('audit')) {
+        aiResponse = `🛡️ **Shrinkage & Stock Integrity Audit (${activeStore.name}):**\n` +
+          `• Logged Shrinkage / Damage Loss: **${formatCurrency(totalShrinkageLoss)}**\n` +
+          `• Shrinkage Loss Ratio: **${shrinkageRatio}%** of revenue\n` +
+          `• Active Stock Units: **${totalItemsCount} units** across **${allVarieties.length} varieties**\n` +
+          `${totalShrinkageLoss > 0 ? '⚠️ Action Required: Investigate physical stock counts against POS reconciliation.' : '✅ Stock integrity is currently clean with zero reported shrinkage.'}`;
+      } 
+      // 4. Supplier Price Spikes & Leakage Analysis
+      else if (lower.includes('supplier') || lower.includes('spike') || lower.includes('leakage') || lower.includes('variance') || lower.includes('anomaly')) {
+        if (anomalyResult.hasAnomaly) {
+          aiResponse = `🚨 **Forensic Supplier Audit Alert:**\n` +
+            `We detected **${anomalyResult.flaggedItems.length} price anomaly(ies)** resulting in **${formatCurrency(anomalyResult.totalDiscrepancyAmount)}** in supplier price leakage.\n` +
+            `This variance has been automatically subtracted from your Net Profit. Re-negotiate invoice terms with your vendor.`;
+        } else {
+          aiResponse = `✅ **Supplier Audit Clean:** All active invoices for ${activeStore.name} match standard benchmark cost pricing. Zero price discrepancies detected.`;
+        }
+      } 
+      // 5. Full P&L & Profit Margin Breakdown
+      else if (lower.includes('margin') || lower.includes('profit') || lower.includes('net') || lower.includes('gross') || lower.includes('revenue') || lower.includes('p&l')) {
+        aiResponse = `📊 **Comprehensive P&L Audit (${activeStore.name}):**\n` +
+          `• **Total Revenue:** ${formatCurrency(totalRevenue)} (POS: ${formatCurrency(activeStore.posSalesRevenue)})\n` +
+          `• **Cost of Goods Sold (COGS):** ${formatCurrency(totalCOGS)}\n` +
+          `• **Gross Profit:** ${formatCurrency(grossProfit)} (**${marginPct}%** Gross Margin)\n` +
+          `• **Operating Expenses:** ${formatCurrency(totalExpenses)}\n` +
+          `• **Shrinkage & Leakage Losses:** ${formatCurrency(totalShrinkageLoss + anomalyResult.totalDiscrepancyAmount)}\n` +
+          `• **Net Audited Profit:** **${formatCurrency(netProfit)}**`;
+      } 
+      // 6. Default CPA Diagnostic
+      else {
+        aiResponse = `🔍 **Forensic CPA Analysis for ${activeStore.name}:**\n` +
+          `Your net audited profit currently stands at **${formatCurrency(netProfit)}** with a gross margin of **${marginPct}%**.\n` +
+          `Ask me specific accounting questions such as:\n` +
+          `• "Audit my expense burn rate"\n` +
+          `• "Check for supplier price variances"\n` +
+          `• "Analyze my inventory shrinkage ratio"\n` +
+          `• "Show full P&L breakdown"`;
       }
 
       setChatMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
-    }, 600);
+    }, 500);
   };
 
   const chartDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -550,7 +600,7 @@ export default function DashboardPage() {
         onChange={handleFileUpload}
       />
 
-      {/* New Store Branch Creation Modal with Store Type Selector */}
+      {/* New Store Branch Creation Modal */}
       {showNewStoreModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
@@ -945,7 +995,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v3.2 • Multi-Store & Category Active</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v3.3 • Forensic CPA Active</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
@@ -1212,17 +1262,17 @@ export default function DashboardPage() {
             <div className="p-3.5 bg-slate-800/80 border-b border-slate-700 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Bot className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-bold text-white">MY-AUDITOR AI Live Support</span>
+                <span className="text-xs font-bold text-white">MY-AUDITOR Forensic CPA</span>
               </div>
               <button onClick={() => setIsAiChatOpen(false)} className="text-slate-400 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 p-3 overflow-y-auto space-y-3 text-xs">
+            <div className="flex-1 p-3 overflow-y-auto space-y-3 text-xs whitespace-pre-wrap">
               {chatMessages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-2.5 rounded-xl ${
+                  <div className={`max-w-[85%] p-2.5 rounded-xl ${
                     msg.sender === 'user' ? 'bg-emerald-500 text-slate-950 font-medium' : 'bg-slate-950 border border-slate-800 text-slate-200'
                   }`}>
                     {msg.text}
@@ -1236,7 +1286,7 @@ export default function DashboardPage() {
                 type="text"
                 value={userQuery}
                 onChange={e => setUserQuery(e.target.value)}
-                placeholder="Ask AI Support..."
+                placeholder="Ask Forensic CPA anything..."
                 className="flex-1 bg-slate-900 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
               />
               <button type="submit" className="p-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl transition cursor-pointer">
