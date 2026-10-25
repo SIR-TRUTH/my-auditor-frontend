@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   ShieldCheck, 
@@ -35,27 +35,28 @@ import { globalAuditEngine } from '../../lib/auditEngine';
 import { generateProfitAndLossReport, generateDailyPandLTrend } from '../../lib/reportsEngine';
 import { executePosSale, executeOperatingExpense, reportStockDiscrepancy, authorizeStockLossWriteOff } from '../../lib/verticalSlice';
 import { parseReceiptImageText, postParsedReceiptToLedger } from "../../lib/ocrParser";
+import { UserContext, enforcePermission, UserRole } from '../../lib/rbacEngine';
 
 const CURRENCIES: Record<string, { code: string; symbol: string; rate: number }> = {
   NGN: { code: 'NGN', symbol: '₦', rate: 1 },
   USD: { code: 'USD', symbol: '$', rate: 1500 },
 };
 
-const STORE_TYPES = [
-  "Retail Supermarket & Provisions",
-  "Real Estate & Property Management",
-  "Oil & Gas / Energy Downstream",
-  "Petrol Station / Filling Station ⛽",
-  "Custom Business Niche (Specify below)"
-];
-
 export default function DashboardPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currencyKey, setCurrencyKey] = useState("NGN");
-  const [userRole, setUserRole] = useState<'ADMIN' | 'AUDITOR' | 'INVESTOR'>("ADMIN");
+  const [userRole, setUserRole] = useState<UserRole>("ADMIN");
 
   // Force state refresh helper for ledger updates
   const [ledgerVersion, setLedgerVersion] = useState(0);
+
+  // Current user context for RBAC guard
+  const currentUser: UserContext = {
+    userId: 'usr-current',
+    businessId: 'biz-1',
+    branchId: 'branch-main',
+    role: userRole,
+  };
 
   // Initialize Engines on First Load
   useEffect(() => {
@@ -77,11 +78,10 @@ export default function DashboardPage() {
   const [expenseAmt, setExpenseAmt] = useState(500);
 
   const [shrinkQty, setShrinkQty] = useState(3);
-  const [posNotice, setPosNotice] = useState("");
+  const [notice, setNotice] = useState("");
 
   // OCR Upload State
   const [ocrRawText, setOcrRawText] = useState("SUPER STORE NIGERIA\n2x Diesel Fuel @ 750\nTOTAL: 1500");
-  const [ocrNotice, setOcrNotice] = useState("");
 
   // Chat State
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
@@ -98,67 +98,78 @@ export default function DashboardPage() {
   const formatMoney = (koboVal: bigint) => formatKoboToNaira(koboVal, currencyKey === 'USD' ? '$' : '₦');
 
   const handleSimulatePOSSale = () => {
-    if (userRole === 'INVESTOR') return;
     try {
+      enforcePermission(currentUser, 'POST_TRANSACTION');
       executePosSale({
-        businessId: 'biz-1',
-        branchId: 'branch-main',
+        businessId: currentUser.businessId,
+        branchId: currentUser.branchId,
         productId: 'prod-1',
         quantity: 1,
         unitPriceNaira: 350
       });
       setLedgerVersion(v => v + 1);
-      setPosNotice(`POS Sale Executed: 1x Coaster Biscuits sold for ₦350.00! Ledger updated deterministically.`);
-      setTimeout(() => setPosNotice(""), 4000);
+      setNotice(`POS Sale Executed: 1x Coaster Biscuits sold for ₦350.00! Ledger updated deterministically.`);
+      setTimeout(() => setNotice(""), 4000);
     } catch (err: any) {
-      setPosNotice(`Error: ${err.message}`);
-      setTimeout(() => setPosNotice(""), 4000);
+      setNotice(`RBAC Blocked: ${err.message}`);
+      setTimeout(() => setNotice(""), 5000);
     }
   };
 
   const handleAddExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    executeOperatingExpense({
-      businessId: 'biz-1',
-      branchId: 'branch-main',
-      category: expenseCat,
-      amountNaira: Number(expenseAmt)
-    });
-    setLedgerVersion(v => v + 1);
-    setShowExpenseModal(false);
+    try {
+      enforcePermission(currentUser, 'POST_TRANSACTION');
+      executeOperatingExpense({
+        businessId: currentUser.businessId,
+        branchId: currentUser.branchId,
+        category: expenseCat,
+        amountNaira: Number(expenseAmt)
+      });
+      setLedgerVersion(v => v + 1);
+      setShowExpenseModal(false);
+    } catch (err: any) {
+      alert(`RBAC Blocked: ${err.message}`);
+    }
   };
 
   const handleAddShrinkageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productState) return;
-    const expected = productState.currentStock;
-    const actual = Math.max(0, expected - Number(shrinkQty));
+    try {
+      enforcePermission(currentUser, 'POST_TRANSACTION');
+      if (!productState) return;
+      const expected = productState.currentStock;
+      const actual = Math.max(0, expected - Number(shrinkQty));
 
-    reportStockDiscrepancy({
-      businessId: 'biz-1',
-      branchId: 'branch-main',
-      productId: 'prod-1',
-      expectedQty: expected,
-      actualQty: actual
-    });
-    setLedgerVersion(v => v + 1);
-    setShowShrinkageModal(false);
+      reportStockDiscrepancy({
+        businessId: currentUser.businessId,
+        branchId: currentUser.branchId,
+        productId: 'prod-1',
+        expectedQty: expected,
+        actualQty: actual
+      });
+      setLedgerVersion(v => v + 1);
+      setShowShrinkageModal(false);
+    } catch (err: any) {
+      alert(`RBAC Blocked: ${err.message}`);
+    }
   };
 
   const handleOcrSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      enforcePermission(currentUser, 'POST_TRANSACTION');
       const parsed = postParsedReceiptToLedger({
-        businessId: 'biz-1',
-        branchId: 'branch-main',
+        businessId: currentUser.businessId,
+        branchId: currentUser.branchId,
         rawText: ocrRawText
       });
       setLedgerVersion(v => v + 1);
-      setOcrNotice(`OCR Scanned & Posted: ${parsed.vendorName} (₦${parsed.totalAmountNaira.toLocaleString()}) posted to ledger!`);
+      setNotice(`OCR Scanned & Posted: ${parsed.vendorName} (₦${parsed.totalAmountNaira.toLocaleString()}) posted to ledger!`);
       setShowOcrModal(false);
-      setTimeout(() => setOcrNotice(""), 5000);
+      setTimeout(() => setNotice(""), 5000);
     } catch (err: any) {
-      alert(`OCR Error: ${err.message}`);
+      alert(`RBAC Blocked: ${err.message}`);
     }
   };
 
@@ -170,7 +181,7 @@ export default function DashboardPage() {
     setUserQuery("");
 
     setTimeout(() => {
-      let aiResponse = `📊 **Forensic CPA Analysis:**\n` +
+      let aiResponse = `📊 **Forensic CPA Analysis (${userRole} View):**\n` +
         `• **Revenue:** ${formatMoney(pnlReport.totalRevenueKobo)}\n` +
         `• **COGS:** ${formatMoney(pnlReport.totalCogsKobo)}\n` +
         `• **Gross Profit:** ${formatMoney(pnlReport.grossProfitKobo)}\n` +
@@ -203,7 +214,7 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1">
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
               <select
@@ -215,9 +226,20 @@ export default function DashboardPage() {
                 <option value="USD" className="bg-slate-900">$ USD</option>
               </select>
             </div>
-            <span className="text-xs font-bold px-3 py-1 rounded-xl border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
-              {userRole}
-            </span>
+
+            {/* RBAC Role Selector Dropdown */}
+            <div className="flex items-center gap-1 bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <select
+                value={userRole}
+                onChange={(e) => setUserRole(e.target.value as UserRole)}
+                className="bg-transparent text-xs text-emerald-300 font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="ADMIN" className="bg-slate-900 text-white">ADMIN (Full Access)</option>
+                <option value="AUDITOR" className="bg-slate-900 text-white">AUDITOR (Read & Audit)</option>
+                <option value="INVESTOR" className="bg-slate-900 text-white">INVESTOR (Read-Only P&L)</option>
+              </select>
+            </div>
           </div>
         </div>
       </header>
@@ -228,7 +250,7 @@ export default function DashboardPage() {
           <div className="w-80 bg-slate-900 border-r border-slate-800 h-full p-6 flex flex-col justify-between shadow-2xl">
             <div className="space-y-6">
               <div className="flex justify-between items-center pb-4 border-b border-slate-800">
-                <span className="font-black text-white text-lg">Deterministic Action Hub</span>
+                <span className="font-black text-white text-lg">Action Hub ({userRole})</span>
                 <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
@@ -237,31 +259,31 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <button
                   onClick={handleSimulatePOSSale}
-                  className="w-full p-3 bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                  className={`w-full p-3 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30'}`}
                 >
-                  <ShoppingBag className="w-4 h-4" /> Simulate POS Sale (₦350)
+                  <ShoppingBag className="w-4 h-4" /> Simulate POS Sale (₦350) {userRole === 'INVESTOR' && '(Locked)'}
                 </button>
                 <button
                   onClick={() => { setIsMenuOpen(false); setShowOcrModal(true); }}
-                  className="w-full p-3 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                  className={`w-full p-3 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}`}
                 >
-                  <Camera className="w-4 h-4" /> Scan Receipt / OCR Upload
+                  <Camera className="w-4 h-4" /> Scan Receipt / OCR Upload {userRole === 'INVESTOR' && '(Locked)'}
                 </button>
                 <button
                   onClick={() => { setIsMenuOpen(false); setShowExpenseModal(true); }}
-                  className="w-full p-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                  className={`w-full p-3 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'}`}
                 >
-                  <DollarSign className="w-4 h-4 text-emerald-400" /> Log Operational Expense
+                  <DollarSign className="w-4 h-4 text-emerald-400" /> Log Operational Expense {userRole === 'INVESTOR' && '(Locked)'}
                 </button>
                 <button
                   onClick={() => { setIsMenuOpen(false); setShowShrinkageModal(true); }}
-                  className="w-full p-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                  className={`w-full p-3 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}
                 >
-                  <ShieldAlert className="w-4 h-4" /> Report Stock Discrepancy
+                  <ShieldAlert className="w-4 h-4" /> Report Stock Discrepancy {userRole === 'INVESTOR' && '(Locked)'}
                 </button>
               </div>
             </div>
-            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v4.0 • Zero-Simulation Ledger</p>
+            <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v4.0 • RBAC Secured</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
         </div>
@@ -289,9 +311,6 @@ export default function DashboardPage() {
                   className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl p-3 text-white focus:outline-none"
                 />
               </div>
-              <p className="text-[10px] text-slate-500">
-                The engine will extract the vendor and total amount deterministically and post an audited double-entry journal entry to the ledger instantly.
-              </p>
               <button type="submit" className="w-full py-2.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
                 Process & Post to Ledger
               </button>
@@ -349,17 +368,17 @@ export default function DashboardPage() {
       {/* Main Dashboard Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
         
-        {posNotice && (
-          <div className="bg-teal-500/10 border border-teal-500/30 p-3 rounded-xl text-teal-300 text-xs font-bold flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4 shrink-0" />
-            {posNotice}
+        {notice && (
+          <div className="bg-cyan-500/10 border border-cyan-500/30 p-3 rounded-xl text-cyan-300 text-xs font-bold flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            {notice}
           </div>
         )}
 
-        {ocrNotice && (
-          <div className="bg-cyan-500/10 border border-cyan-500/30 p-3 rounded-xl text-cyan-300 text-xs font-bold flex items-center gap-2">
-            <Camera className="w-4 h-4 shrink-0" />
-            {ocrNotice}
+        {userRole === 'INVESTOR' && (
+          <div className="bg-purple-500/10 border border-purple-500/30 p-3 rounded-xl text-purple-300 text-xs font-bold flex items-center gap-2">
+            <Lock className="w-4 h-4 shrink-0" />
+            Investor Mode Active: Operational write permissions are restricted. You are viewing audited P&L statements and exposure reports.
           </div>
         )}
 
@@ -390,7 +409,7 @@ export default function DashboardPage() {
             <p className="text-lg font-black text-white mt-0.5">Potential Stock Exposure: {formatMoney(totalExposureKobo)}</p>
           </div>
           <span className="text-xs bg-amber-500/20 text-amber-300 px-3 py-1 rounded-xl font-bold">
-            Does Not Reduce Net Profit Until Authorized
+            Branch: Main Ikeja Outlet
           </span>
         </div>
 
