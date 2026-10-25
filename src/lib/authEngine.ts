@@ -1,14 +1,13 @@
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
+// In-memory fallback store for serverless environments like Vercel where local disk writes are restricted
+const memoryStore: Record<string, any[]> = {
+  'users.json': [],
+  'otps.json': [],
+  'businesses.json': [],
+  'branches.json': [],
+  'memberships.json': [],
+};
 
 export function hashPassword(password: string): string {
   const salt = 'my-auditor-enterprise-salt-key';
@@ -16,19 +15,17 @@ export function hashPassword(password: string): string {
 }
 
 export function readStore(filename: string): any[] {
-  ensureDir();
-  const filePath = path.join(DATA_DIR, filename);
-  if (!fs.existsSync(filePath)) return [];
   try {
-    const data = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(data);
+    return memoryStore[filename] || [];
   } catch (e) {
     return [];
   }
 }
 
 export function writeStore(filename: string, data: any[]) {
-  ensureDir();
-  const filePath = path.join(DATA_DIR, filename);
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  try {
+    memoryStore[filename] = data;
+  } catch (e) {
+    // Ignore read-only filesystem errors on serverless
+  }
 }
