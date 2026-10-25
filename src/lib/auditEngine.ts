@@ -1,54 +1,58 @@
 /**
- * MY-AUDITOR Audit Engine
+ * MY-AUDITOR Continuous Audit Engine
+ * Isolates stock discrepancies and operational exposures away from the P&L until authorized.
  */
 
 import { Kobo } from './currency';
-
-export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type FindingStatus = 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'FALSE_POSITIVE' | 'ACCEPTED_RISK';
 
 export interface AuditFinding {
   id: string;
   businessId: string;
   branchId: string;
-  ruleId: string;
-  title: string;
+  discrepancyType: string;
   description: string;
-  severity: Severity;
-  estimatedExposureKobo: Kobo;
-  status: FindingStatus;
-  detectedAt: string;
+  potentialExposureKobo: bigint;
+  status: 'UNRESOLVED' | 'AUTHORIZED_WRITE_OFF' | 'RECOVERED';
+  createdAt: Date;
 }
 
 export class AuditEngine {
   private findings: AuditFinding[] = [];
 
-  public createFinding(finding: Omit<AuditFinding, 'id' | 'detectedAt' | 'status'>): AuditFinding {
-    const newFinding: AuditFinding = {
-      ...finding,
-      id: `find-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      status: 'OPEN',
-      detectedAt: new Date().toISOString(),
-    };
-    this.findings.push(newFinding);
-    return newFinding;
-  }
-
-  public getTotalPotentialExposureKobo(): Kobo {
-    return this.findings
-      .filter(f => f.status === 'OPEN' || f.status === 'UNDER_REVIEW')
-      .reduce((sum, f) => sum + f.estimatedExposureKobo, 0n);
-  }
-
-  public resolveFinding(findingId: string): void {
-    const finding = this.findings.find(f => f.id === findingId);
-    if (finding) {
-      finding.status = 'RESOLVED';
-    }
-  }
-
   public clear(): void {
     this.findings = [];
+  }
+
+  public reportPotentialExposure(params: {
+    businessId: string;
+    branchId: string;
+    discrepancyType: string;
+    description: string;
+    potentialExposureKobo: bigint;
+  }): AuditFinding {
+    const finding: AuditFinding = {
+      id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      businessId: params.businessId,
+      branchId: params.branchId,
+      discrepancyType: params.discrepancyType,
+      description: params.description,
+      potentialExposureKobo: params.potentialExposureKobo,
+      status: 'UNRESOLVED',
+      createdAt: new Date(),
+    };
+
+    this.findings.push(finding);
+    return finding;
+  }
+
+  public getTotalPotentialExposureKobo(): bigint {
+    return this.findings
+      .filter(f => f.status === 'UNRESOLVED')
+      .reduce((sum, f) => sum + f.potentialExposureKobo, 0n);
+  }
+
+  public getFindings(): AuditFinding[] {
+    return [...this.findings];
   }
 }
 
