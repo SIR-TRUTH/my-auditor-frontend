@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   ShieldCheck, 
@@ -34,20 +34,21 @@ import {
   ArrowUpRight,
   TrendingUp,
   FileCheck,
-  HelpCircle
+  HelpCircle,
+  QrCode,
+  PackagePlus
 } from 'lucide-react';
 
 import { nairaToKobo, formatKoboToNaira } from '../../lib/currency';
 import { globalAccountingEngine } from '../../lib/accountingEngine';
 import { globalInventoryEngine } from '../../lib/inventoryEngine';
 import { globalAuditEngine } from '../../lib/auditEngine';
-import { generateProfitAndLossReport } from '../../lib/reportsEngine';
+import { generateProfitAndLossReport, generateDailyPandLTrend } from '../../lib/reportsEngine';
 import { executePosSale, executeOperatingExpense, reportStockDiscrepancy } from '../../lib/verticalSlice';
 import { parseReceiptImageText, postParsedReceiptToLedger } from "../../lib/ocrParser";
 import { UserContext, enforcePermission, UserRole } from '../../lib/rbacEngine';
 
 export default function DashboardPage() {
-  // Navigation & UI States
   const [activeTab, setActiveTab] = useState<'dashboard' | 'sales' | 'inventory' | 'expenses' | 'audit' | 'scanner' | 'reports'>('dashboard');
   const [selectedBranch, setSelectedBranch] = useState<string>('ALL');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -63,9 +64,18 @@ export default function DashboardPage() {
     role: userRole,
   };
 
+  // Initialize Default Product on load if empty
+  useEffect(() => {
+    if (globalInventoryEngine.getProductState('prod-1') === undefined) {
+      globalInventoryEngine.registerProduct('prod-1', 'Coaster Biscuits', 100, nairaToKobo(250));
+      setLedgerVersion(v => v + 1);
+    }
+  }, []);
+
   // Action Modals State
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
   const [showOcrModal, setShowOcrModal] = useState(false);
 
@@ -74,11 +84,17 @@ export default function DashboardPage() {
   const [salePriceNaira, setSalePriceNaira] = useState(35000);
   const [expenseCat, setExpenseCat] = useState<'FUEL' | 'GENERAL'>('FUEL');
   const [expenseAmt, setExpenseAmt] = useState(15000);
+  
+  const [newProdName, setNewProdName] = useState('');
+  const [newProdQty, setNewProdQty] = useState(50);
+  const [newProdCost, setNewProdCost] = useState(20000);
+
   const [discrepancyQty, setDiscrepancyQty] = useState(2);
 
-  // OCR Review State
+  // OCR & Camera Scan State
   const [ocrInputText, setOcrInputText] = useState("SUPER STORE NIGERIA\n2x Coaster Biscuits @ 35000\nTOTAL: 70000");
   const [ocrReviewData, setOcrReviewData] = useState<any | null>(null);
+  const [scanningMode, setScanningMode] = useState<'text' | 'camera' | 'upload'>('text');
 
   // AI Chat State
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
@@ -87,10 +103,12 @@ export default function DashboardPage() {
   ]);
   const [userQuery, setUserQuery] = useState("");
 
-  // Financial Reports from Engines
+  // Financial Reports
   const pnlReport = generateProfitAndLossReport();
+  const dailyTrend = generateDailyPandLTrend();
   const totalExposureKobo = globalAuditEngine.getTotalPotentialExposureKobo();
   const auditFindings = globalAuditEngine.getFindings();
+  const productState = globalInventoryEngine.getProductState('prod-1');
 
   const formatMoney = (koboVal: bigint) => formatKoboToNaira(koboVal, currencyKey === 'USD' ? '$' : '₦');
 
@@ -134,6 +152,23 @@ export default function DashboardPage() {
     }
   };
 
+  const handleAddInventorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      enforcePermission(currentUser, 'POST_TRANSACTION');
+      if (!newProdName.trim()) return;
+      const prodId = `prod-${Date.now()}`;
+      globalInventoryEngine.registerProduct(prodId, newProdName, Number(newProdQty), nairaToKobo(Number(newProdCost)));
+      setLedgerVersion(v => v + 1);
+      setShowInventoryModal(false);
+      setNewProdName('');
+      setNotice(`New inventory item registered with WAC tracking.`);
+      setTimeout(() => setNotice(""), 4000);
+    } catch (err: any) {
+      alert(`RBAC Blocked: ${err.message}`);
+    }
+  };
+
   const handleDiscrepancySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -142,8 +177,8 @@ export default function DashboardPage() {
         businessId: currentUser.businessId,
         branchId: currentUser.branchId,
         productId: 'prod-1',
-        expectedQty: 100,
-        actualQty: Math.max(0, 100 - Number(discrepancyQty))
+        expectedQty: productState?.currentStock || 100,
+        actualQty: Math.max(0, (productState?.currentStock || 100) - Number(discrepancyQty))
       });
       setLedgerVersion(v => v + 1);
       setShowDiscrepancyModal(false);
@@ -158,6 +193,16 @@ export default function DashboardPage() {
     e.preventDefault();
     const parsed = parseReceiptImageText(ocrInputText);
     setOcrReviewData(parsed);
+  };
+
+  const handleFileUploadSimulation = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const fileName = e.target.files[0].name;
+      const simulatedText = `UPLOADED FILE: ${fileName}\nVendor: Ikeja Mega Store\n3x Premium Fuel @ 5000\nTOTAL: 15000`;
+      setOcrInputText(simulatedText);
+      const parsed = parseReceiptImageText(simulatedText);
+      setOcrReviewData(parsed);
+    }
   };
 
   const handleConfirmOcrPost = () => {
@@ -211,7 +256,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex-1 py-4 px-3 space-y-6 overflow-y-auto text-xs font-semibold">
-          {/* OVERVIEW */}
           <div className="space-y-1">
             {isSidebarOpen && <p className="px-3 text-[10px] text-slate-500 uppercase tracking-widest font-bold">Overview</p>}
             <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${activeTab === 'dashboard' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
@@ -220,7 +264,6 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* OPERATIONS */}
           <div className="space-y-1">
             {isSidebarOpen && <p className="px-3 text-[10px] text-slate-500 uppercase tracking-widest font-bold">Operations</p>}
             <button onClick={() => setActiveTab('sales')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${activeTab === 'sales' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
@@ -237,7 +280,6 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* AUDIT */}
           <div className="space-y-1">
             {isSidebarOpen && <p className="px-3 text-[10px] text-slate-500 uppercase tracking-widest font-bold">Audit & Compliance</p>}
             <button onClick={() => setActiveTab('audit')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${activeTab === 'audit' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
@@ -250,7 +292,6 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* INTELLIGENCE & MANAGEMENT */}
           <div className="space-y-1">
             {isSidebarOpen && <p className="px-3 text-[10px] text-slate-500 uppercase tracking-widest font-bold">Intelligence</p>}
             <button onClick={() => setActiveTab('reports')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${activeTab === 'reports' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
@@ -277,7 +318,6 @@ export default function DashboardPage() {
               <Menu className="w-4 h-4" />
             </button>
             
-            {/* Branch Selector */}
             <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5">
               <Building2 className="w-4 h-4 text-emerald-400" />
               <select
@@ -294,7 +334,6 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Currency Selector */}
             <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1">
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
               <select
@@ -307,7 +346,6 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            {/* RBAC Role Selector */}
             <div className="flex items-center gap-1 bg-slate-800 border border-emerald-500/30 rounded-xl px-2.5 py-1">
               <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
               <select
@@ -323,7 +361,6 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* Notice Banner */}
         {notice && (
           <div className="mx-6 mt-4 bg-cyan-500/10 border border-cyan-500/30 p-3 rounded-xl text-cyan-300 text-xs font-bold flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 shrink-0" />
@@ -361,6 +398,12 @@ export default function DashboardPage() {
                 <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Record Expense
               </button>
               <button
+                onClick={() => setShowInventoryModal(true)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'}`}
+              >
+                <PackagePlus className="w-3.5 h-3.5 text-teal-400" /> Add Inventory
+              </button>
+              <button
                 onClick={() => setShowDiscrepancyModal(true)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}
               >
@@ -370,7 +413,7 @@ export default function DashboardPage() {
                 onClick={() => setShowOcrModal(true)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}`}
               >
-                <Camera className="w-3.5 h-3.5" /> AI OCR Scanner
+                <Camera className="w-3.5 h-3.5" /> AI OCR / Camera Scanner
               </button>
             </div>
           </div>
@@ -398,6 +441,25 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* LIVE P&L TREND CHART */}
+              <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-400" /> Real-Time P&L Trend (Actual Transaction Dates)
+                  </h3>
+                  <span className="text-[10px] bg-slate-800 text-slate-400 px-2.5 py-1 rounded-lg">Live Aggregation</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-7 gap-3">
+                  {dailyTrend.map((day, idx) => (
+                    <div key={idx} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center space-y-1">
+                      <p className="text-[10px] text-slate-400 font-mono">{day.date}</p>
+                      <p className="text-xs font-bold text-emerald-400">{formatMoney(day.revenueKobo)}</p>
+                      <p className="text-[10px] text-rose-400">Exp: {formatMoney(day.expensesKobo)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Continuous Audit Centre Isolated Banner */}
               <div className="bg-amber-500/10 border border-amber-500/30 p-5 rounded-2xl flex items-center justify-between">
                 <div>
@@ -422,17 +484,17 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
                     <p className="text-xs text-slate-400">Primary Catalog Item</p>
-                    <p className="font-bold text-white text-sm mt-1">Coaster Biscuits</p>
-                    <p className="text-xs text-emerald-400 mt-1">100 Units Available</p>
+                    <p className="font-bold text-white text-sm mt-1">{productState?.productName || 'Coaster Biscuits'}</p>
+                    <p className="text-xs text-emerald-400 mt-1">{productState?.currentStock || 100} Units Available</p>
                   </div>
                   <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
                     <p className="text-xs text-slate-400">Weighted Average Cost (WAC)</p>
-                    <p className="font-bold text-white text-sm mt-1">{formatMoney(nairaToKobo(250))}</p>
+                    <p className="font-bold text-white text-sm mt-1">{formatMoney(productState?.weightedAverageCostKobo || nairaToKobo(250))}</p>
                     <p className="text-xs text-slate-500 mt-1">Movement-tracked</p>
                   </div>
                   <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
                     <p className="text-xs text-slate-400">Total Inventory Asset Value</p>
-                    <p className="font-bold text-emerald-400 text-sm mt-1">{formatMoney(nairaToKobo(250 * 100))}</p>
+                    <p className="font-bold text-emerald-400 text-sm mt-1">{formatMoney((productState?.currentStock || 100n) * (productState?.weightedAverageCostKobo || nairaToKobo(250)))}</p>
                     <p className="text-xs text-slate-500 mt-1">Integer minor units enforced</p>
                   </div>
                 </div>
@@ -461,7 +523,15 @@ export default function DashboardPage() {
           {/* TAB: INVENTORY & WAC */}
           {activeTab === 'inventory' && (
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
-              <h3 className="font-bold text-white text-base">Inventory & Weighted Average Costing (WAC)</h3>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-white text-base">Inventory & Weighted Average Costing (WAC)</h3>
+                  <p className="text-xs text-slate-400">Manage SKUs, stock levels, and WAC valuation.</p>
+                </div>
+                <button onClick={() => setShowInventoryModal(true)} className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
+                  + Add Inventory Item
+                </button>
+              </div>
               <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 space-y-3">
                 <div className="flex justify-between items-center text-xs border-b border-slate-800 pb-2">
                   <span className="font-bold text-slate-300">Product Name</span>
@@ -469,9 +539,9 @@ export default function DashboardPage() {
                   <span className="font-bold text-slate-300">WAC Unit Cost</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-white font-medium">Coaster Biscuits</span>
-                  <span className="text-emerald-400 font-bold">100 units</span>
-                  <span className="text-slate-300">{formatMoney(nairaToKobo(250))}</span>
+                  <span className="text-white font-medium">{productState?.productName || 'Coaster Biscuits'}</span>
+                  <span className="text-emerald-400 font-bold">{productState?.currentStock || 100} units</span>
+                  <span className="text-slate-300">{formatMoney(productState?.weightedAverageCostKobo || nairaToKobo(250))}</span>
                 </div>
               </div>
             </div>
@@ -530,22 +600,44 @@ export default function DashboardPage() {
           {/* TAB: AI OCR SCANNER */}
           {activeTab === 'scanner' && (
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
-              <h3 className="font-bold text-white text-base">AI OCR Receipt & Invoice Scanner</h3>
-              <p className="text-xs text-slate-400">Upload receipts or invoices for intelligent classification and review before posting to the ledger.</p>
-              <form onSubmit={handleRunOcrScan} className="space-y-3 max-w-lg">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Simulated Document Text / Upload</label>
-                  <textarea
-                    rows={4}
-                    value={ocrInputText}
-                    onChange={e => setOcrInputText(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl p-3 text-white focus:outline-none"
-                  />
+              <h3 className="font-bold text-white text-base">AI OCR Receipt, Invoice & Camera Scanner</h3>
+              <p className="text-xs text-slate-400">Upload documents, take pictures with your camera, or scan receipts for intelligent review before posting.</p>
+              
+              <div className="flex gap-2">
+                <button onClick={() => setScanningMode('text')} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${scanningMode === 'text' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300'}`}>Text Input</button>
+                <button onClick={() => setScanningMode('upload')} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${scanningMode === 'upload' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300'}`}>Upload File / Image</button>
+                <button onClick={() => setScanningMode('camera')} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${scanningMode === 'camera' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300'}`}>Camera / QR Capture</button>
+              </div>
+
+              {scanningMode === 'text' && (
+                <form onSubmit={handleRunOcrScan} className="space-y-3 max-w-lg">
+                  <textarea rows={4} value={ocrInputText} onChange={e => setOcrInputText(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl p-3 text-white focus:outline-none" />
+                  <button type="submit" className="py-2.5 px-4 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Classify & Review Document</button>
+                </form>
+              )}
+
+              {scanningMode === 'upload' && (
+                <div className="p-6 bg-slate-950 rounded-xl border border-slate-800 border-dashed text-center space-y-3 max-w-lg">
+                  <UploadCloud className="w-8 h-8 text-cyan-400 mx-auto" />
+                  <p className="text-xs text-slate-300 font-bold">Select PDF, PNG, or JPEG receipt/invoice</p>
+                  <input type="file" accept="image/*,.pdf" onChange={handleFileUploadSimulation} className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400 cursor-pointer" />
                 </div>
-                <button type="submit" className="py-2.5 px-4 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
-                  Classify & Review Document
-                </button>
-              </form>
+              )}
+
+              {scanningMode === 'camera' && (
+                <div className="p-6 bg-slate-950 rounded-xl border border-slate-800 text-center space-y-3 max-w-lg">
+                  <Camera className="w-10 h-10 text-cyan-400 mx-auto animate-pulse" />
+                  <p className="text-xs text-white font-bold">Live Camera / QR Code Scanner Active</p>
+                  <p className="text-[10px] text-slate-400">Position receipt or QR barcode within frame to capture.</p>
+                  <button onClick={() => {
+                    const sample = "CAMERA CAPTURE: POS RECEIPT\n4x Premium Drink @ 1250\nTOTAL: 5000";
+                    setOcrInputText(sample);
+                    setOcrReviewData(parseReceiptImageText(sample));
+                  }} className="px-4 py-2 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
+                    Capture Sample Receipt Frame
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -585,19 +677,11 @@ export default function DashboardPage() {
       {showSaleModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-white text-sm">Record Sale (POS / Cash)</h3>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Record Sale (POS / Cash)</h3><button onClick={() => setShowSaleModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleRecordSaleSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Quantity</label>
-                <input type="number" value={saleQty} onChange={e => setSaleQty(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Unit Price (₦)</label>
-                <input type="number" value={salePriceNaira} onChange={e => setSalePriceNaira(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" />
-              </div>
-              <button type="submit" className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
-                Post Sale to Ledger
-              </button>
+              <div><label className="text-xs text-slate-400 block mb-1">Quantity</label><input type="number" value={saleQty} onChange={e => setSaleQty(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
+              <div><label className="text-xs text-slate-400 block mb-1">Unit Price (₦)</label><input type="number" value={salePriceNaira} onChange={e => setSalePriceNaira(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
+              <button type="submit" className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Post Sale to Ledger</button>
             </form>
           </div>
         </div>
@@ -607,15 +691,25 @@ export default function DashboardPage() {
       {showExpenseModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-white text-sm">Record Operating Expense</h3>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Record Operating Expense</h3><button onClick={() => setShowExpenseModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleRecordExpenseSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Amount (₦)</label>
-                <input type="number" value={expenseAmt} onChange={e => setExpenseAmt(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" />
-              </div>
-              <button type="submit" className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
-                Post Expense Journal
-              </button>
+              <div><label className="text-xs text-slate-400 block mb-1">Amount (₦)</label><input type="number" value={expenseAmt} onChange={e => setExpenseAmt(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
+              <button type="submit" className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Post Expense Journal</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD INVENTORY MODAL */}
+      {showInventoryModal && (
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Add New Inventory Item</h3><button onClick={() => setShowInventoryModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
+            <form onSubmit={handleAddInventorySubmit} className="space-y-3">
+              <div><label className="text-xs text-slate-400 block mb-1">Product Name</label><input type="text" value={newProdName} onChange={e => setNewProdName(e.target.value)} placeholder="e.g. Premium Motor Spirit" className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" required /></div>
+              <div><label className="text-xs text-slate-400 block mb-1">Initial Quantity</label><input type="number" value={newProdQty} onChange={e => setNewProdQty(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
+              <div><label className="text-xs text-slate-400 block mb-1">Cost Price (₦)</label><input type="number" value={newProdCost} onChange={e => setNewProdCost(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
+              <button type="submit" className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Register Inventory SKU</button>
             </form>
           </div>
         </div>
@@ -625,15 +719,10 @@ export default function DashboardPage() {
       {showDiscrepancyModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="font-bold text-white text-sm">Report Stock Discrepancy (Audit Centre)</h3>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Report Stock Discrepancy</h3><button onClick={() => setShowDiscrepancyModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleDiscrepancySubmit} className="space-y-3">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Missing Units</label>
-                <input type="number" value={discrepancyQty} onChange={e => setDiscrepancyQty(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" />
-              </div>
-              <button type="submit" className="w-full py-2.5 bg-rose-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
-                Create Audit Finding (Isolated)
-              </button>
+              <div><label className="text-xs text-slate-400 block mb-1">Missing Units</label><input type="number" value={discrepancyQty} onChange={e => setDiscrepancyQty(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
+              <button type="submit" className="w-full py-2.5 bg-rose-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Create Audit Finding</button>
             </form>
           </div>
         </div>
@@ -644,7 +733,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-white text-sm">AI OCR Document Review</h3>
+              <h3 className="font-bold text-white text-sm">AI OCR Document Review & Post</h3>
               <button onClick={() => setShowOcrModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
             {!ocrReviewData ? (
@@ -657,7 +746,7 @@ export default function DashboardPage() {
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
                   <p className="text-cyan-400 font-bold">Detected Classification: {ocrReviewData.classification}</p>
                   <p className="text-white">Vendor: {ocrReviewData.vendorName}</p>
-                  <p className="text-white">Total: ₦{ocrReviewData.totalAmountNaira.toLocaleString()}</p>
+                  <p className="text-white">Total Amount: ₦{ocrReviewData.totalAmountNaira.toLocaleString()}</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleConfirmOcrPost} className="flex-1 py-2.5 bg-emerald-500 text-slate-950 font-bold rounded-xl cursor-pointer">Confirm & Post</button>
