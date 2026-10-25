@@ -35,7 +35,6 @@ import {
   TrendingUp,
   FileCheck,
   HelpCircle,
-  QrCode,
   PackagePlus
 } from 'lucide-react';
 
@@ -64,25 +63,25 @@ export default function DashboardPage() {
     role: userRole,
   };
 
-  // Initialize Default Product on load if empty
   useEffect(() => {
-    if (globalInventoryEngine.getProductState('prod-1') === undefined) {
-      globalInventoryEngine.registerProduct('prod-1', 'Coaster Biscuits', 100, nairaToKobo(250));
-      setLedgerVersion(v => v + 1);
+    try {
+      if (!globalInventoryEngine.getProductState('prod-1')) {
+        globalInventoryEngine.registerProduct('prod-1', 'Coaster Biscuits', 100, nairaToKobo(250));
+        setLedgerVersion(v => v + 1);
+      }
+    } catch (e) {
+      console.error(e);
     }
   }, []);
 
-  // Action Modals State
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
   const [showOcrModal, setShowOcrModal] = useState(false);
 
-  // Form inputs
   const [saleQty, setSaleQty] = useState(1);
   const [salePriceNaira, setSalePriceNaira] = useState(35000);
-  const [expenseCat, setExpenseCat] = useState<'FUEL' | 'GENERAL'>('FUEL');
   const [expenseAmt, setExpenseAmt] = useState(15000);
   
   const [newProdName, setNewProdName] = useState('');
@@ -91,28 +90,34 @@ export default function DashboardPage() {
 
   const [discrepancyQty, setDiscrepancyQty] = useState(2);
 
-  // OCR & Camera Scan State
   const [ocrInputText, setOcrInputText] = useState("SUPER STORE NIGERIA\n2x Coaster Biscuits @ 35000\nTOTAL: 70000");
   const [ocrReviewData, setOcrReviewData] = useState<any | null>(null);
-  const [scanningMode, setScanningMode] = useState<'text' | 'camera' | 'upload'>('text');
+  const [scanningMode, setScanningMode] = useState<'text' | 'upload' | 'camera'>('text');
 
-  // AI Chat State
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ sender: 'ai' | 'user'; text: string }[]>([
-    { sender: 'ai', text: 'Hello! I am your MY-AUDITOR AI Forensic CPA. I am monitoring your branch ledger in real-time. Ask me about your P&L, COGS, expenses, or audit exposures.' }
+    { sender: 'ai', text: 'Hello! I am your MY-AUDITOR AI Forensic CPA. I am monitoring your branch ledger in real-time.' }
   ]);
   const [userQuery, setUserQuery] = useState("");
 
-  // Financial Reports
-  const pnlReport = generateProfitAndLossReport();
-  const dailyTrend = generateDailyPandLTrend();
-  const totalExposureKobo = globalAuditEngine.getTotalPotentialExposureKobo();
-  const auditFindings = globalAuditEngine.getFindings();
-  const productState = globalInventoryEngine.getProductState('prod-1');
+  let pnlReport = { totalRevenueKobo: 0n, totalCogsKobo: 0n, grossProfitKobo: 0n, operatingExpensesKobo: 0n, netProfitKobo: 0n };
+  let dailyTrend: any[] = [];
+  let totalExposureKobo = 0n;
+  let auditFindings: any[] = [];
+  let productState: any = null;
+
+  try {
+    pnlReport = generateProfitAndLossReport();
+    dailyTrend = generateDailyPandLTrend() || [];
+    totalExposureKobo = globalAuditEngine.getTotalPotentialExposureKobo();
+    auditFindings = globalAuditEngine.getFindings() || [];
+    productState = globalInventoryEngine.getProductState('prod-1');
+  } catch (err) {
+    console.error(err);
+  }
 
   const formatMoney = (koboVal: bigint) => formatKoboToNaira(koboVal, currencyKey === 'USD' ? '$' : '₦');
 
-  // Handlers
   const handleRecordSaleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -140,7 +145,7 @@ export default function DashboardPage() {
       executeOperatingExpense({
         businessId: currentUser.businessId,
         branchId: currentUser.branchId,
-        category: expenseCat,
+        category: 'FUEL',
         amountNaira: Number(expenseAmt)
       });
       setLedgerVersion(v => v + 1);
@@ -182,7 +187,7 @@ export default function DashboardPage() {
       });
       setLedgerVersion(v => v + 1);
       setShowDiscrepancyModal(false);
-      setNotice(`Stock discrepancy logged to Continuous Audit Centre (Isolated from P&L).`);
+      setNotice(`Stock discrepancy logged to Continuous Audit Centre.`);
       setTimeout(() => setNotice(""), 5000);
     } catch (err: any) {
       alert(`RBAC Blocked: ${err.message}`);
@@ -193,16 +198,6 @@ export default function DashboardPage() {
     e.preventDefault();
     const parsed = parseReceiptImageText(ocrInputText);
     setOcrReviewData(parsed);
-  };
-
-  const handleFileUploadSimulation = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const fileName = e.target.files[0].name;
-      const simulatedText = `UPLOADED FILE: ${fileName}\nVendor: Ikeja Mega Store\n3x Premium Fuel @ 5000\nTOTAL: 15000`;
-      setOcrInputText(simulatedText);
-      const parsed = parseReceiptImageText(simulatedText);
-      setOcrReviewData(parsed);
-    }
   };
 
   const handleConfirmOcrPost = () => {
@@ -232,13 +227,10 @@ export default function DashboardPage() {
     setUserQuery("");
 
     setTimeout(() => {
-      let aiResponse = `📊 **Forensic CPA Analysis (${userRole} View - Branch: ${selectedBranch}):**\n` +
-        `• **Revenue:** ${formatMoney(pnlReport.totalRevenueKobo)}\n` +
-        `• **COGS:** ${formatMoney(pnlReport.totalCogsKobo)}\n` +
-        `• **Gross Profit:** ${formatMoney(pnlReport.grossProfitKobo)}\n` +
-        `• **Operating Expenses:** ${formatMoney(pnlReport.operatingExpensesKobo)}\n` +
-        `• **Net Audited Profit:** ${formatMoney(pnlReport.netProfitKobo)}\n` +
-        `• **Potential Audit Exposure (Isolated):** ${formatMoney(totalExposureKobo)}`;
+      let aiResponse = `📊 **Forensic CPA Analysis (${userRole} View):**\n` +
+        `• Revenue: ${formatMoney(pnlReport.totalRevenueKobo)}\n` +
+        `• Net Profit: ${formatMoney(pnlReport.netProfitKobo)}\n` +
+        `• Potential Audit Exposure: ${formatMoney(totalExposureKobo)}`;
       setChatMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
     }, 400);
   };
@@ -301,17 +293,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="p-4 border-t border-slate-800">
-          <div className="text-[10px] text-slate-500 text-center font-mono">
-            {isSidebarOpen ? 'Enterprise Ledger v4.0' : 'v4.0'}
-          </div>
+        <div className="p-4 border-t border-slate-800 text-[10px] text-slate-500 text-center font-mono">
+          {isSidebarOpen ? 'Enterprise Ledger v4.0' : 'v4.0'}
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Top Header */}
         <header className="h-16 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-700 transition cursor-pointer">
@@ -368,60 +357,34 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {userRole === 'INVESTOR' && (
-          <div className="mx-6 mt-4 bg-purple-500/10 border border-purple-500/30 p-3 rounded-xl text-purple-300 text-xs font-bold flex items-center gap-2">
-            <Lock className="w-4 h-4 shrink-0" />
-            Investor Mode Active: Operational write permissions are restricted. You are viewing audited P&L statements and exposure reports.
-          </div>
-        )}
-
-        {/* Main Content Views */}
         <main className="p-6 space-y-6 flex-1">
           
-          {/* ACTION HUB TOOLBAR */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">Enterprise Action Hub</h2>
               <p className="text-xs text-slate-400">Perform verified accounting entries and audits for branch: <span className="text-emerald-400 font-bold">{selectedBranch}</span></p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowSaleModal(true)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'}`}
-              >
+              <button onClick={() => setShowSaleModal(true)} className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-slate-950">
                 <Plus className="w-3.5 h-3.5" /> Record Sale
               </button>
-              <button
-                onClick={() => setShowExpenseModal(true)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'}`}
-              >
+              <button onClick={() => setShowExpenseModal(true)} className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Record Expense
               </button>
-              <button
-                onClick={() => setShowInventoryModal(true)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'}`}
-              >
+              <button onClick={() => setShowInventoryModal(true)} className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
                 <PackagePlus className="w-3.5 h-3.5 text-teal-400" /> Add Inventory
               </button>
-              <button
-                onClick={() => setShowDiscrepancyModal(true)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}
-              >
+              <button onClick={() => setShowDiscrepancyModal(true)} className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30">
                 <ShieldAlert className="w-3.5 h-3.5" /> Report Discrepancy
               </button>
-              <button
-                onClick={() => setShowOcrModal(true)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer ${userRole === 'INVESTOR' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}`}
-              >
+              <button onClick={() => setShowOcrModal(true)} className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                 <Camera className="w-3.5 h-3.5" /> AI OCR / Camera Scanner
               </button>
             </div>
           </div>
 
-          {/* TAB: DASHBOARD / OVERVIEW */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
-              {/* Financial Cards Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Sales & Revenue</p>
@@ -460,59 +423,23 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Continuous Audit Centre Isolated Banner */}
               <div className="bg-amber-500/10 border border-amber-500/30 p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Continuous Audit Centre (Isolated from P&L)</p>
                   <p className="text-lg font-black text-white mt-0.5">Potential Stock Exposure: {formatMoney(totalExposureKobo)}</p>
-                  <p className="text-xs text-slate-400 mt-1">{auditFindings.length} open discrepancy findings registered across branches.</p>
                 </div>
-                <button
-                  onClick={() => setActiveTab('audit')}
-                  className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer hover:bg-amber-400"
-                >
+                <button onClick={() => setActiveTab('audit')} className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer hover:bg-amber-400">
                   View Audit Findings
                 </button>
-              </div>
-
-              {/* Verified Inventory Engine Summary */}
-              <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Inventory & WAC Valuation</h3>
-                  <button onClick={() => setActiveTab('inventory')} className="text-xs text-emerald-400 hover:underline">View All Inventory →</button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                    <p className="text-xs text-slate-400">Primary Catalog Item</p>
-                    <p className="font-bold text-white text-sm mt-1">{productState?.productName || 'Coaster Biscuits'}</p>
-                    <p className="text-xs text-emerald-400 mt-1">{productState?.currentStock || 100} Units Available</p>
-                  </div>
-                  <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                    <p className="text-xs text-slate-400">Weighted Average Cost (WAC)</p>
-                    <p className="font-bold text-white text-sm mt-1">{formatMoney(productState?.weightedAverageCostKobo || nairaToKobo(250))}</p>
-                    <p className="text-xs text-slate-500 mt-1">Movement-tracked</p>
-                  </div>
-                  <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                    <p className="text-xs text-slate-400">Total Inventory Asset Value</p>
-                    <p className="font-bold text-emerald-400 text-sm mt-1">{formatMoney((productState?.currentStock || 100n) * (productState?.weightedAverageCostKobo || nairaToKobo(250)))}</p>
-                    <p className="text-xs text-slate-500 mt-1">Integer minor units enforced</p>
-                  </div>
-                </div>
               </div>
             </div>
           )}
 
-          {/* TAB: SALES & REVENUE */}
           {activeTab === 'sales' && (
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
               <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-white text-base">Sales & Revenue Ledger</h3>
-                  <p className="text-xs text-slate-400">All POS and cash transactions posted with verified double-entry accounting.</p>
-                </div>
-                <button onClick={() => setShowSaleModal(true)} className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
-                  + Record New Sale
-                </button>
+                <h3 className="font-bold text-white text-base">Sales & Revenue Ledger</h3>
+                <button onClick={() => setShowSaleModal(true)} className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">+ Record New Sale</button>
               </div>
               <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
                 Total Revenue Recorded: <span className="text-white font-bold text-sm">{formatMoney(pnlReport.totalRevenueKobo)}</span>
@@ -520,17 +447,11 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* TAB: INVENTORY & WAC */}
           {activeTab === 'inventory' && (
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
               <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-white text-base">Inventory & Weighted Average Costing (WAC)</h3>
-                  <p className="text-xs text-slate-400">Manage SKUs, stock levels, and WAC valuation.</p>
-                </div>
-                <button onClick={() => setShowInventoryModal(true)} className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
-                  + Add Inventory Item
-                </button>
+                <h3 className="font-bold text-white text-base">Inventory & WAC Valuation</h3>
+                <button onClick={() => setShowInventoryModal(true)} className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">+ Add Inventory Item</button>
               </div>
               <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 space-y-3">
                 <div className="flex justify-between items-center text-xs border-b border-slate-800 pb-2">
@@ -547,14 +468,11 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* TAB: EXPENSES */}
           {activeTab === 'expenses' && (
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-white text-base">Operating Expenses Ledger</h3>
-                <button onClick={() => setShowExpenseModal(true)} className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
-                  + Log Expense
-                </button>
+                <button onClick={() => setShowExpenseModal(true)} className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">+ Log Expense</button>
               </div>
               <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
                 Total Operating Expenses: <span className="text-rose-400 font-bold text-sm">{formatMoney(pnlReport.operatingExpensesKobo)}</span>
@@ -562,34 +480,17 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* TAB: CONTINUOUS AUDIT CENTRE */}
           {activeTab === 'audit' && (
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-white text-base">Continuous Audit Centre</h3>
-                  <p className="text-xs text-slate-400">Isolated operational discrepancies and shrinkage exposure (does not modify Net Profit).</p>
-                </div>
-                <span className="text-xs bg-amber-500/20 text-amber-300 px-3 py-1 rounded-xl font-bold">
-                  Total Exposure: {formatMoney(totalExposureKobo)}
-                </span>
-              </div>
+              <h3 className="font-bold text-white text-base">Continuous Audit Centre</h3>
               <div className="space-y-2">
                 {auditFindings.length === 0 ? (
-                  <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
-                    No active audit discrepancies found. All stock movements are reconciled.
-                  </div>
+                  <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">No active audit discrepancies found.</div>
                 ) : (
-                  auditFindings.map(f => (
+                  auditFindings.map((f: any) => (
                     <div key={f.id} className="p-4 bg-slate-950 rounded-xl border border-amber-500/20 flex justify-between items-center text-xs">
-                      <div>
-                        <p className="font-bold text-amber-300">{f.discrepancyType}</p>
-                        <p className="text-slate-400 mt-0.5">{f.description}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-white">{formatMoney(f.potentialExposureKobo)}</p>
-                        <span className="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-md font-bold">{f.status}</span>
-                      </div>
+                      <div><p className="font-bold text-amber-300">{f.discrepancyType}</p><p className="text-slate-400">{f.description}</p></div>
+                      <div className="text-right"><p className="font-bold text-white">{formatMoney(f.potentialExposureKobo)}</p></div>
                     </div>
                   ))
                 )}
@@ -597,75 +498,24 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* TAB: AI OCR SCANNER */}
           {activeTab === 'scanner' && (
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
-              <h3 className="font-bold text-white text-base">AI OCR Receipt, Invoice & Camera Scanner</h3>
-              <p className="text-xs text-slate-400">Upload documents, take pictures with your camera, or scan receipts for intelligent review before posting.</p>
-              
-              <div className="flex gap-2">
-                <button onClick={() => setScanningMode('text')} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${scanningMode === 'text' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300'}`}>Text Input</button>
-                <button onClick={() => setScanningMode('upload')} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${scanningMode === 'upload' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300'}`}>Upload File / Image</button>
-                <button onClick={() => setScanningMode('camera')} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${scanningMode === 'camera' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300'}`}>Camera / QR Capture</button>
-              </div>
-
-              {scanningMode === 'text' && (
-                <form onSubmit={handleRunOcrScan} className="space-y-3 max-w-lg">
-                  <textarea rows={4} value={ocrInputText} onChange={e => setOcrInputText(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl p-3 text-white focus:outline-none" />
-                  <button type="submit" className="py-2.5 px-4 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Classify & Review Document</button>
-                </form>
-              )}
-
-              {scanningMode === 'upload' && (
-                <div className="p-6 bg-slate-950 rounded-xl border border-slate-800 border-dashed text-center space-y-3 max-w-lg">
-                  <UploadCloud className="w-8 h-8 text-cyan-400 mx-auto" />
-                  <p className="text-xs text-slate-300 font-bold">Select PDF, PNG, or JPEG receipt/invoice</p>
-                  <input type="file" accept="image/*,.pdf" onChange={handleFileUploadSimulation} className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400 cursor-pointer" />
-                </div>
-              )}
-
-              {scanningMode === 'camera' && (
-                <div className="p-6 bg-slate-950 rounded-xl border border-slate-800 text-center space-y-3 max-w-lg">
-                  <Camera className="w-10 h-10 text-cyan-400 mx-auto animate-pulse" />
-                  <p className="text-xs text-white font-bold">Live Camera / QR Code Scanner Active</p>
-                  <p className="text-[10px] text-slate-400">Position receipt or QR barcode within frame to capture.</p>
-                  <button onClick={() => {
-                    const sample = "CAMERA CAPTURE: POS RECEIPT\n4x Premium Drink @ 1250\nTOTAL: 5000";
-                    setOcrInputText(sample);
-                    setOcrReviewData(parseReceiptImageText(sample));
-                  }} className="px-4 py-2 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
-                    Capture Sample Receipt Frame
-                  </button>
-                </div>
-              )}
+              <h3 className="font-bold text-white text-base">AI OCR Receipt & Camera Scanner</h3>
+              <form onSubmit={handleRunOcrScan} className="space-y-3 max-w-lg">
+                <textarea rows={4} value={ocrInputText} onChange={e => setOcrInputText(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl p-3 text-white" />
+                <button type="submit" className="py-2.5 px-4 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Classify & Review Document</button>
+              </form>
             </div>
           )}
 
-          {/* TAB: REPORTS */}
           {activeTab === 'reports' && (
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl space-y-4">
               <h3 className="font-bold text-white text-base">Audited Profit & Loss Statement</h3>
               <div className="bg-slate-950 rounded-xl border border-slate-800 p-5 space-y-3 text-xs">
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Total Revenue</span>
-                  <span className="font-bold text-white">{formatMoney(pnlReport.totalRevenueKobo)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Cost of Goods Sold (COGS)</span>
-                  <span className="font-bold text-rose-400">-{formatMoney(pnlReport.totalCogsKobo)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-800 font-bold text-sm">
-                  <span className="text-slate-200">Gross Profit</span>
-                  <span className="text-emerald-400">{formatMoney(pnlReport.grossProfitKobo)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-800">
-                  <span className="text-slate-400">Operating Expenses</span>
-                  <span className="font-bold text-rose-400">-{formatMoney(pnlReport.operatingExpensesKobo)}</span>
-                </div>
-                <div className="flex justify-between py-3 font-black text-base border-t border-slate-700">
-                  <span className="text-white">Net Audited Profit</span>
-                  <span className="text-emerald-400">{formatMoney(pnlReport.netProfitKobo)}</span>
-                </div>
+                <div className="flex justify-between py-2 border-b border-slate-800"><span className="text-slate-400">Total Revenue</span><span className="font-bold text-white">{formatMoney(pnlReport.totalRevenueKobo)}</span></div>
+                <div className="flex justify-between py-2 border-b border-slate-800"><span className="text-slate-400">Gross Profit</span><span className="font-bold text-emerald-400">{formatMoney(pnlReport.grossProfitKobo)}</span></div>
+                <div className="flex justify-between py-2 border-b border-slate-800"><span className="text-slate-400">Operating Expenses</span><span className="font-bold text-rose-400">-{formatMoney(pnlReport.operatingExpensesKobo)}</span></div>
+                <div className="flex justify-between py-3 font-black text-base border-t border-slate-700"><span className="text-white">Net Audited Profit</span><span className="text-emerald-400">{formatMoney(pnlReport.netProfitKobo)}</span></div>
               </div>
             </div>
           )}
@@ -673,11 +523,10 @@ export default function DashboardPage() {
         </main>
       </div>
 
-      {/* RECORD SALE MODAL */}
       {showSaleModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Record Sale (POS / Cash)</h3><button onClick={() => setShowSaleModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Record Sale</h3><button onClick={() => setShowSaleModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleRecordSaleSubmit} className="space-y-3">
               <div><label className="text-xs text-slate-400 block mb-1">Quantity</label><input type="number" value={saleQty} onChange={e => setSaleQty(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
               <div><label className="text-xs text-slate-400 block mb-1">Unit Price (₦)</label><input type="number" value={salePriceNaira} onChange={e => setSalePriceNaira(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
@@ -687,11 +536,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* RECORD EXPENSE MODAL */}
       {showExpenseModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Record Operating Expense</h3><button onClick={() => setShowExpenseModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Record Expense</h3><button onClick={() => setShowExpenseModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleRecordExpenseSubmit} className="space-y-3">
               <div><label className="text-xs text-slate-400 block mb-1">Amount (₦)</label><input type="number" value={expenseAmt} onChange={e => setExpenseAmt(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
               <button type="submit" className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Post Expense Journal</button>
@@ -700,26 +548,24 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ADD INVENTORY MODAL */}
       {showInventoryModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Add New Inventory Item</h3><button onClick={() => setShowInventoryModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Add Inventory Item</h3><button onClick={() => setShowInventoryModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleAddInventorySubmit} className="space-y-3">
-              <div><label className="text-xs text-slate-400 block mb-1">Product Name</label><input type="text" value={newProdName} onChange={e => setNewProdName(e.target.value)} placeholder="e.g. Premium Motor Spirit" className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" required /></div>
+              <div><label className="text-xs text-slate-400 block mb-1">Product Name</label><input type="text" value={newProdName} onChange={e => setNewProdName(e.target.value)} placeholder="e.g. Rice Bag" className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" required /></div>
               <div><label className="text-xs text-slate-400 block mb-1">Initial Quantity</label><input type="number" value={newProdQty} onChange={e => setNewProdQty(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
               <div><label className="text-xs text-slate-400 block mb-1">Cost Price (₦)</label><input type="number" value={newProdCost} onChange={e => setNewProdCost(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
-              <button type="submit" className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Register Inventory SKU</button>
+              <button type="submit" className="w-full py-2.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Register SKU</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* REPORT DISCREPANCY MODAL */}
       {showDiscrepancyModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Report Stock Discrepancy</h3><button onClick={() => setShowDiscrepancyModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">Report Discrepancy</h3><button onClick={() => setShowDiscrepancyModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleDiscrepancySubmit} className="space-y-3">
               <div><label className="text-xs text-slate-400 block mb-1">Missing Units</label><input type="number" value={discrepancyQty} onChange={e => setDiscrepancyQty(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 text-white" /></div>
               <button type="submit" className="w-full py-2.5 bg-rose-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">Create Audit Finding</button>
@@ -728,14 +574,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* OCR REVIEW MODAL */}
       {showOcrModal && (
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-white text-sm">AI OCR Document Review & Post</h3>
-              <button onClick={() => setShowOcrModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
-            </div>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-white text-sm">OCR Document Review</h3><button onClick={() => setShowOcrModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button></div>
             {!ocrReviewData ? (
               <form onSubmit={handleRunOcrScan} className="space-y-3">
                 <textarea rows={3} value={ocrInputText} onChange={e => setOcrInputText(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl p-3 text-white" />
@@ -744,9 +586,9 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3 text-xs">
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-                  <p className="text-cyan-400 font-bold">Detected Classification: {ocrReviewData.classification}</p>
+                  <p className="text-cyan-400 font-bold">Classification: {ocrReviewData.classification}</p>
                   <p className="text-white">Vendor: {ocrReviewData.vendorName}</p>
-                  <p className="text-white">Total Amount: ₦{ocrReviewData.totalAmountNaira.toLocaleString()}</p>
+                  <p className="text-white">Total: ₦{ocrReviewData.totalAmountNaira.toLocaleString()}</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleConfirmOcrPost} className="flex-1 py-2.5 bg-emerald-500 text-slate-950 font-bold rounded-xl cursor-pointer">Confirm & Post</button>
