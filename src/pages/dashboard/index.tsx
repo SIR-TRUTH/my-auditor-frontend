@@ -34,7 +34,7 @@ import { globalInventoryEngine } from '../../lib/inventoryEngine';
 import { globalAuditEngine } from '../../lib/auditEngine';
 import { generateProfitAndLossReport, generateDailyPandLTrend } from '../../lib/reportsEngine';
 import { executePosSale, executeOperatingExpense, reportStockDiscrepancy, authorizeStockLossWriteOff } from '../../lib/verticalSlice';
-import { parseReceiptImageText } from "../../lib/ocrParser";
+import { parseReceiptImageText, postParsedReceiptToLedger } from "../../lib/ocrParser";
 
 const CURRENCIES: Record<string, { code: string; symbol: string; rate: number }> = {
   NGN: { code: 'NGN', symbol: '₦', rate: 1 },
@@ -69,26 +69,19 @@ export default function DashboardPage() {
   }, []);
 
   // Modals state
-  const [showNewStoreModel, setShowNewStoreModel] = useState(false);
-  const [newStoreNameInput, setNewStoreNameInput] = useState("");
-  const [newStoreTypeInput, setNewStoreTypeInput] = useState(STORE_TYPES[0]);
-  const [customNicheInput, setCustomNicheInput] = useState("");
-
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showShrinkageModal, setShowShrinkageModal] = useState(false);
+  const [showOcrModal, setShowOcrModal] = useState(false);
   
-  const [newVarietyName, setNewVarietyName] = useState("");
-  const [newBarcode, setNewBarcode] = useState("");
-  const [newQty, setNewQty] = useState(10);
-  const [newCost, setNewCost] = useState(250);
-  const [newPrice, setNewPrice] = useState(350);
-
   const [expenseCat, setExpenseCat] = useState<'FUEL' | 'GENERAL'>('FUEL');
   const [expenseAmt, setExpenseAmt] = useState(500);
 
   const [shrinkQty, setShrinkQty] = useState(3);
   const [posNotice, setPosNotice] = useState("");
+
+  // OCR Upload State
+  const [ocrRawText, setOcrRawText] = useState("SUPER STORE NIGERIA\n2x Diesel Fuel @ 750\nTOTAL: 1500");
+  const [ocrNotice, setOcrNotice] = useState("");
 
   // Chat State
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
@@ -99,7 +92,6 @@ export default function DashboardPage() {
 
   // Fetch deterministic reports from engines
   const pnlReport = generateProfitAndLossReport();
-  const dailyTrend = generateDailyPandLTrend();
   const totalExposureKobo = globalAuditEngine.getTotalPotentialExposureKobo();
   const productState = globalInventoryEngine.getProductState('prod-1');
 
@@ -151,6 +143,23 @@ export default function DashboardPage() {
     });
     setLedgerVersion(v => v + 1);
     setShowShrinkageModal(false);
+  };
+
+  const handleOcrSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const parsed = postParsedReceiptToLedger({
+        businessId: 'biz-1',
+        branchId: 'branch-main',
+        rawText: ocrRawText
+      });
+      setLedgerVersion(v => v + 1);
+      setOcrNotice(`OCR Scanned & Posted: ${parsed.vendorName} (₦${parsed.totalAmountNaira.toLocaleString()}) posted to ledger!`);
+      setShowOcrModal(false);
+      setTimeout(() => setOcrNotice(""), 5000);
+    } catch (err: any) {
+      alert(`OCR Error: ${err.message}`);
+    }
   };
 
   const handleSendAiMessage = (e: React.FormEvent) => {
@@ -233,6 +242,12 @@ export default function DashboardPage() {
                   <ShoppingBag className="w-4 h-4" /> Simulate POS Sale (₦350)
                 </button>
                 <button
+                  onClick={() => { setIsMenuOpen(false); setShowOcrModal(true); }}
+                  className="w-full p-3 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
+                >
+                  <Camera className="w-4 h-4" /> Scan Receipt / OCR Upload
+                </button>
+                <button
                   onClick={() => { setIsMenuOpen(false); setShowExpenseModal(true); }}
                   className="w-full p-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer"
                 >
@@ -249,6 +264,39 @@ export default function DashboardPage() {
             <p className="text-[10px] text-slate-500 text-center">MY-AUDITOR v4.0 • Zero-Simulation Ledger</p>
           </div>
           <div className="flex-1" onClick={() => setIsMenuOpen(false)}></div>
+        </div>
+      )}
+
+      {/* OCR / Camera Scan Modal */}
+      {showOcrModal && (
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                <Camera className="w-4 h-4 text-cyan-400" /> OCR Receipt & Document Scanner
+              </h3>
+              <button onClick={() => setShowOcrModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleOcrSubmit} className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Simulated Scanned Receipt Text / OCR Output</label>
+                <textarea
+                  rows={4}
+                  value={ocrRawText}
+                  onChange={e => setOcrRawText(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-xs rounded-xl p-3 text-white focus:outline-none"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">
+                The engine will extract the vendor and total amount deterministically and post an audited double-entry journal entry to the ledger instantly.
+              </p>
+              <button type="submit" className="w-full py-2.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl cursor-pointer">
+                Process & Post to Ledger
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -305,6 +353,13 @@ export default function DashboardPage() {
           <div className="bg-teal-500/10 border border-teal-500/30 p-3 rounded-xl text-teal-300 text-xs font-bold flex items-center gap-2">
             <ShoppingBag className="w-4 h-4 shrink-0" />
             {posNotice}
+          </div>
+        )}
+
+        {ocrNotice && (
+          <div className="bg-cyan-500/10 border border-cyan-500/30 p-3 rounded-xl text-cyan-300 text-xs font-bold flex items-center gap-2">
+            <Camera className="w-4 h-4 shrink-0" />
+            {ocrNotice}
           </div>
         )}
 
