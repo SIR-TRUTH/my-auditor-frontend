@@ -16,7 +16,6 @@ export default function VerifyOtpPage() {
     const savedEmail = localStorage.getItem('pending_signup_email');
     if (savedEmail) setEmail(savedEmail);
 
-    // Auto-populate verification code cleanly if present in session storage
     const devCode = localStorage.getItem('dev_otp');
     if (devCode && devCode.length === 6) {
       setOtp(devCode.split(''));
@@ -74,7 +73,7 @@ export default function VerifyOtpPage() {
       }, 1000);
     } catch (err: any) {
       setError(err.message || 'Verification failed.');
-    } font-sans finally {
+    } finally {
       setLoading(false);
     }
   };
