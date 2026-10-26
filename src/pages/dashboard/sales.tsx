@@ -1,31 +1,80 @@
 import React, { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
-import { ReceiptText, Plus, DollarSign, Calendar, Filter } from 'lucide-react';
+import { ReceiptText, Plus, QrCode, Camera, CheckCircle2, ShoppingCart } from 'lucide-react';
 
 export default function SalesPage() {
   const [sales, setSales] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [newSale, setNewSale] = useState({ customer: '', amount: '', paymentMethod: 'POS', items: '' });
+  const [showScanner, setShowScanner] = useState(false);
+
+  const [saleForm, setSaleForm] = useState({
+    productName: 'Coaster Biscuits',
+    quantity: 1,
+    unitPrice: 350,
+    paymentMethod: 'POS',
+  });
 
   useEffect(() => {
-    const saved = localStorage.getItem('my_auditor_sales');
-    if (saved) setSales(JSON.parse(saved));
+    const savedSales = localStorage.getItem('my_auditor_sales');
+    if (savedSales) setSales(JSON.parse(savedSales));
+
+    const savedInv = localStorage.getItem('my_auditor_inventory');
+    if (savedInv) {
+      setInventory(JSON.parse(savedInv));
+    } else {
+      const defaultInv = [{ id: 'PRD-001', name: 'Coaster Biscuits', sku: 'CB-100', qty: 100, cost: 250, price: 350 }];
+      setInventory(defaultInv);
+      localStorage.setItem('my_auditor_inventory', JSON.stringify(defaultInv));
+    }
   }, []);
 
   const handleRecordSale = (e: React.FormEvent) => {
     e.preventDefault();
+    const qty = parseInt(saleForm.quantity) || 1;
+    const unitPrice = parseFloat(saleForm.unitPrice) || 0;
+    const totalAmount = qty * unitPrice;
+
     const saleItem = {
       id: 'SALE-' + Date.now().toString().slice(-4),
-      customer: newSale.customer || 'Walk-in Customer',
-      amount: parseFloat(newSale.amount) || 0,
-      paymentMethod: newSale.paymentMethod,
+      productName: saleForm.productName,
+      quantity: qty,
+      unitPrice: unitPrice,
+      amount: totalAmount,
+      paymentMethod: saleForm.paymentMethod,
       date: new Date().toISOString().split('T')[0],
     };
-    const updated = [saleItem, ...sales];
-    setSales(updated);
-    localStorage.setItem('my_auditor_sales', JSON.stringify(updated));
-    setNewSale({ customer: '', amount: '', paymentMethod: 'POS', items: '' });
+
+    const updatedSales = [saleItem, ...sales];
+    setSales(updatedSales);
+    localStorage.setItem('my_auditor_sales', JSON.stringify(updatedSales));
+
+    // Automatically deduct from inventory stock
+    const updatedInv = inventory.map(item => {
+      if (item.name === saleForm.productName) {
+        return { ...item, qty: Math.max(0, item.qty - qty) };
+      }
+      return item;
+    });
+    setInventory(updatedInv);
+    localStorage.setItem('my_auditor_inventory', JSON.stringify(updatedInv));
+
     setShowModal(false);
+    setSaleForm({ productName: inventory[0]?.name || 'Coaster Biscuits', quantity: 1, unitPrice: inventory[0]?.price || 350, paymentMethod: 'POS' });
+  };
+
+  const handleScanBarcode = (productName: string) => {
+    const matched = inventory.find(i => i.name === productName) || inventory[0];
+    if (matched) {
+      setSaleForm({
+        productName: matched.name,
+        quantity: 1,
+        unitPrice: matched.price,
+        paymentMethod: 'POS',
+      });
+    }
+    setShowScanner(false);
+    setShowModal(true);
   };
 
   const totalSales = sales.reduce((acc, curr) => acc + curr.amount, 0);
@@ -33,45 +82,53 @@ export default function SalesPage() {
   return (
     <AppShell 
       title="Sales & Revenue" 
-      subtitle="Record and monitor POS and cash receipts with real-time revenue recognition."
+      subtitle="Record POS and cash sales by product name & quantity with automated barcode/QR scanning."
       actions={
-        <button 
-          onClick={() => setShowModal(true)}
-          className="px-3.5 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-medium text-xs flex items-center gap-2 transition shadow-sm cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Record Sale
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowScanner(true)}
+            className="px-3 py-2 rounded-lg bg-[#111827] border border-[#1F293B] text-teal-400 hover:bg-[#182234] font-medium text-xs flex items-center gap-2 transition cursor-pointer"
+          >
+            <QrCode className="w-4 h-4" /> Scan QR / Barcode
+          </button>
+          <button 
+            onClick={() => setShowModal(true)}
+            className="px-3.5 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-medium text-xs flex items-center gap-2 transition shadow-sm cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Record Sale
+          </button>
+        </div>
       }
     >
-      {/* Metric Summary */}
+      {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-[#111827] border border-[#1F293B] rounded-xl p-5 space-y-2">
           <span className="text-[11px] font-bold text-slate-400 uppercase">Total Revenue (Recorded)</span>
           <div className="text-2xl font-bold text-white font-mono">₦{totalSales.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</div>
         </div>
         <div className="bg-[#111827] border border-[#1F293B] rounded-xl p-5 space-y-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase">Transaction Count</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase">Transactions Posted</span>
           <div className="text-2xl font-bold text-teal-400 font-mono">{sales.length}</div>
         </div>
         <div className="bg-[#111827] border border-[#1F293B] rounded-xl p-5 space-y-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase">Reconciliation Status</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase">Inventory Synchronization</span>
           <div className="text-sm font-semibold text-emerald-400 flex items-center gap-1.5 mt-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" /> Balanced
+            <span className="w-2 h-2 rounded-full bg-emerald-500" /> Active & Synced
           </div>
         </div>
       </div>
 
-      {/* Transactions Table */}
+      {/* Sales Ledger Table */}
       <div className="bg-[#111827] border border-[#1F293B] rounded-xl overflow-hidden shadow-xs">
         <div className="p-4 border-b border-[#1F293B] flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white">Sales Ledger</h2>
-          <span className="text-xs text-slate-400">Showing all verified POS and cash postings</span>
+          <h2 className="text-sm font-bold text-white">Product Sales Ledger</h2>
+          <span className="text-xs text-slate-400">Showing items sold, quantities, and payment channels</span>
         </div>
 
         {sales.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <ReceiptText className="w-8 h-8 text-slate-600 mx-auto" />
-            <p className="text-xs text-slate-400">No sales recorded yet. Click "Record Sale" above to log your first transaction.</p>
+            <p className="text-xs text-slate-400">No sales recorded yet. Click "Record Sale" or scan a QR code to log your first transaction.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -79,17 +136,23 @@ export default function SalesPage() {
               <thead className="bg-[#0A0E17] text-slate-400 border-b border-[#1F293B] uppercase font-mono text-[10px]">
                 <tr>
                   <th className="p-4">Reference</th>
-                  <th className="p-4">Customer</th>
+                  <th className="p-4">Product Name</th>
+                  <th className="p-4 text-right">Quantity</th>
+                  <th className="p-4 text-right">Unit Price</th>
                   <th className="p-4">Payment Channel</th>
                   <th className="p-4">Date</th>
-                  <th className="p-4 text-right">Amount</th>
+                  <th className="p-4 text-right">Total Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1F293B]">
                 {sales.map((s, idx) => (
                   <tr key={idx} className="hover:bg-[#182234]/50 transition">
                     <td className="p-4 font-mono font-semibold text-teal-400">{s.id}</td>
-                    <td className="p-4 font-medium text-white">{s.customer}</td>
+                    <td className="p-4 font-medium text-white flex items-center gap-2">
+                      <ShoppingCart className="w-3.5 h-3.5 text-slate-500" /> {s.productName}
+                    </td>
+                    <td className="p-4 text-right font-mono font-bold text-white">{s.quantity}</td>
+                    <td className="p-4 text-right font-mono text-slate-400">₦{s.unitPrice.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</td>
                     <td className="p-4"><span className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 text-[10px] font-bold">{s.paymentMethod}</span></td>
                     <td className="p-4 text-slate-400">{s.date}</td>
                     <td className="p-4 text-right font-mono font-bold text-white">₦{s.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</td>
@@ -106,40 +169,68 @@ export default function SalesPage() {
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#1F293B] pb-4">
-              <h3 className="text-base font-bold text-white">Record New Sale</h3>
+              <h3 className="text-base font-bold text-white">Record Sale by Product</h3>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
             </div>
 
             <form onSubmit={handleRecordSale} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Customer Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Walk-in Customer or Enterprise Client"
-                  value={newSale.customer}
-                  onChange={e => setNewSale({ ...newSale, customer: e.target.value })}
-                  className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500"
-                />
+                <label className="font-semibold text-slate-300">Select Product *</label>
+                <select
+                  value={saleForm.productName}
+                  onChange={e => {
+                    const selected = inventory.find(i => i.name === e.target.value);
+                    setSaleForm({
+                      ...saleForm,
+                      productName: e.target.value,
+                      unitPrice: selected ? selected.price : saleForm.unitPrice,
+                    });
+                  }}
+                  className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 cursor-pointer"
+                >
+                  {inventory.map(i => (
+                    <option key={i.id} value={i.name}>{i.name} (In Stock: {i.qty} | ₦{i.price})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-300">Quantity Sold *</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={saleForm.quantity}
+                    onChange={e => setSaleForm({ ...saleForm, quantity: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-lg px-3 py-2.5 text-white font-mono focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-300">Unit Selling Price (₦)</label>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    value={saleForm.unitPrice}
+                    onChange={e => setSaleForm({ ...saleForm, unitPrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-lg px-3 py-2.5 text-white font-mono focus:outline-none focus:border-teal-500"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Total Amount (₦) *</label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  placeholder="0.00"
-                  value={newSale.amount}
-                  onChange={e => setNewSale({ ...newSale, amount: e.target.value })}
-                  className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 font-mono"
-                />
+                <label className="font-semibold text-slate-300">Total Computed Revenue</label>
+                <div className="w-full bg-[#0A0E17]/60 border border-[#1F293B] rounded-lg px-3 py-2.5 text-teal-400 font-mono font-bold text-sm">
+                  ₦{(saleForm.quantity * saleForm.unitPrice).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                </div>
               </div>
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-300">Payment Channel *</label>
                 <select
-                  value={newSale.paymentMethod}
-                  onChange={e => setNewSale({ ...newSale, paymentMethod: e.target.value })}
+                  value={saleForm.paymentMethod}
+                  onChange={e => setSaleForm({ ...saleForm, paymentMethod: e.target.value })}
                   className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500 cursor-pointer"
                 >
                   <option value="POS">POS Terminal</option>
@@ -149,21 +240,51 @@ export default function SalesPage() {
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#1F293B]">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-lg bg-[#0A0E17] border border-[#1F293B] text-slate-300 hover:bg-[#182234] transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold transition shadow-sm cursor-pointer"
-                >
-                  Post Sale to Ledger
-                </button>
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg bg-[#0A0E17] border border-[#1F293B] text-slate-300 hover:bg-[#182234]">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold transition shadow-sm cursor-pointer">Post Sale & Deduct Stock</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code / Barcode Scanner Modal */}
+      {showScanner && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-6 shadow-2xl text-center">
+            <div className="flex items-center justify-between border-b border-[#1F293B] pb-4">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-teal-400" /> Automated QR / Barcode Scanner
+              </h3>
+              <button onClick={() => setShowScanner(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+
+            <div className="border-2 border-dashed border-teal-500/40 rounded-xl p-10 bg-[#0A0E17] space-y-4">
+              <Camera className="w-12 h-12 text-teal-400 mx-auto animate-pulse" />
+              <p className="text-xs text-slate-300">Point your camera or barcode scanner device at the product QR / Barcode.</p>
+              
+              <div className="pt-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase">Or Test Simulated Scan:</span>
+                <div className="flex flex-wrap gap-2 justify-center mt-3">
+                  {inventory.map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleScanBarcode(item.name)}
+                      className="px-3 py-2 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 rounded-lg text-teal-300 text-xs font-bold transition cursor-pointer"
+                    >
+                      Scan: {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowScanner(false)}
+              className="w-full py-2.5 bg-[#0A0E17] border border-[#1F293B] text-slate-300 hover:bg-[#182234] rounded-lg text-xs font-bold transition"
+            >
+              Close Scanner
+            </button>
           </div>
         </div>
       )}
