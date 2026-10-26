@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AppShell from '../../components/AppShell';
-import { ReceiptText, Plus, QrCode, Camera, CheckCircle2, ShoppingCart } from 'lucide-react';
+import { ReceiptText, Plus, QrCode, Camera, ShoppingCart, AlertCircle } from 'lucide-react';
 
 export default function SalesPage() {
   const [sales, setSales] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const [saleForm, setSaleForm] = useState({
     productName: 'Coaster Biscuits',
@@ -27,7 +30,32 @@ export default function SalesPage() {
       setInventory(defaultInv);
       localStorage.setItem('my_auditor_inventory', JSON.stringify(defaultInv));
     }
+
+    return () => {
+      stopCamera();
+    };
   }, []);
+
+  const startCamera = async () => {
+    setCameraError('');
+    setShowScanner(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err: any) {
+      setCameraError('Camera access denied or unavailable. Please use the simulated quick-scan buttons below.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+  };
 
   const handleRecordSale = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +77,6 @@ export default function SalesPage() {
     setSales(updatedSales);
     localStorage.setItem('my_auditor_sales', JSON.stringify(updatedSales));
 
-    // Automatically deduct from inventory stock
     const updatedInv = inventory.map(item => {
       if (item.name === saleForm.productName) {
         return { ...item, qty: Math.max(0, item.qty - qty) };
@@ -63,7 +90,7 @@ export default function SalesPage() {
     setSaleForm({ productName: inventory[0]?.name || 'Coaster Biscuits', quantity: 1, unitPrice: inventory[0]?.price || 350, paymentMethod: 'POS' });
   };
 
-  const handleScanBarcode = (productName: string) => {
+  const handleSelectScannedProduct = (productName: string) => {
     const matched = inventory.find(i => i.name === productName) || inventory[0];
     if (matched) {
       setSaleForm({
@@ -73,6 +100,7 @@ export default function SalesPage() {
         paymentMethod: 'POS',
       });
     }
+    stopCamera();
     setShowScanner(false);
     setShowModal(true);
   };
@@ -86,7 +114,7 @@ export default function SalesPage() {
       actions={
         <div className="flex items-center gap-2">
           <button 
-            onClick={() => setShowScanner(true)}
+            onClick={startCamera}
             className="px-3 py-2 rounded-lg bg-[#111827] border border-[#1F293B] text-teal-400 hover:bg-[#182234] font-medium text-xs flex items-center gap-2 transition cursor-pointer"
           >
             <QrCode className="w-4 h-4" /> Scan QR / Barcode
@@ -100,7 +128,6 @@ export default function SalesPage() {
         </div>
       }
     >
-      {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-[#111827] border border-[#1F293B] rounded-xl p-5 space-y-2">
           <span className="text-[11px] font-bold text-slate-400 uppercase">Total Revenue (Recorded)</span>
@@ -118,7 +145,6 @@ export default function SalesPage() {
         </div>
       </div>
 
-      {/* Sales Ledger Table */}
       <div className="bg-[#111827] border border-[#1F293B] rounded-xl overflow-hidden shadow-xs">
         <div className="p-4 border-b border-[#1F293B] flex items-center justify-between">
           <h2 className="text-sm font-bold text-white">Product Sales Ledger</h2>
@@ -248,39 +274,54 @@ export default function SalesPage() {
         </div>
       )}
 
-      {/* QR Code / Barcode Scanner Modal */}
+      {/* QR Code / Barcode Live Camera Scanner Modal */}
       {showScanner && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-6 shadow-2xl text-center">
             <div className="flex items-center justify-between border-b border-[#1F293B] pb-4">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <QrCode className="w-5 h-5 text-teal-400" /> Automated QR / Barcode Scanner
+                <QrCode className="w-5 h-5 text-teal-400" /> Live QR & Barcode Scanner
               </h3>
-              <button onClick={() => setShowScanner(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
+              <button onClick={() => { stopCamera(); setShowScanner(false); }} className="text-slate-400 hover:text-white font-bold">✕</button>
             </div>
 
-            <div className="border-2 border-dashed border-teal-500/40 rounded-xl p-10 bg-[#0A0E17] space-y-4">
-              <Camera className="w-12 h-12 text-teal-400 mx-auto animate-pulse" />
-              <p className="text-xs text-slate-300">Point your camera or barcode scanner device at the product QR / Barcode.</p>
-              
-              <div className="pt-2">
-                <span className="text-[11px] font-bold text-slate-500 uppercase">Or Test Simulated Scan:</span>
-                <div className="flex flex-wrap gap-2 justify-center mt-3">
-                  {inventory.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleScanBarcode(item.name)}
-                      className="px-3 py-2 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 rounded-lg text-teal-300 text-xs font-bold transition cursor-pointer"
-                    >
-                      Scan: {item.name}
-                    </button>
-                  ))}
-                </div>
+            {cameraError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {cameraError}
+              </div>
+            )}
+
+            <div className="relative border-2 border-teal-500/40 rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center">
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 border-2 border-teal-400/50 pointer-events-none flex items-center justify-center">
+                <div className="w-48 h-24 border-2 border-dashed border-teal-400 rounded-lg animate-pulse" />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <span className="text-[11px] font-bold text-slate-400 uppercase">Or Select Product Instantly:</span>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {inventory.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectScannedProduct(item.name)}
+                    className="px-3.5 py-2 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 rounded-lg text-teal-300 text-xs font-bold transition cursor-pointer"
+                  >
+                    Select: {item.name}
+                  </button>
+                ))}
               </div>
             </div>
 
             <button
-              onClick={() => setShowScanner(false)}
+              onClick={() => { stopCamera(); setShowScanner(false); }}
               className="w-full py-2.5 bg-[#0A0E17] border border-[#1F293B] text-slate-300 hover:bg-[#182234] rounded-lg text-xs font-bold transition"
             >
               Close Scanner
