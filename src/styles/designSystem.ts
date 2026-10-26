@@ -1,31 +1,21 @@
-export const theme = {
+export const enterpriseTheme = {
   colors: {
-    bgApp: '#090D16',       // Very dark navy / near black background
-    bgSurface: '#111827',   // Slightly lighter navy surface cards
-    bgSurfaceHover: '#1F2937',
-    borderSubtle: '#1E293B',// Low-contrast borders
-    borderStrong: '#334155',
-    textMain: '#F8FAFC',    // Crisp white primary text
-    textMuted: '#94A3B8',   // Slate secondary text
-    textSubtle: '#64748B',  // Muted labels
-    primary: '#10B981',     // Emerald accent
-    primaryHover: '#059669',
+    bgCanvas: '#0A0E17',      // Deep obsidian canvas
+    bgSurface: '#111827',     // Crisp card surface
+    bgSubtle: '#182234',      // Hover / active row state
+    borderLight: '#1F293B',   // Hairline structural border
+    borderMedium: '#374151',  // Input / interactive border
+    textPrimary: '#F9FAFB',   // High-contrast primary text
+    textSecondary: '#9CA3AF', // Muted label text
+    textSubtle: '#6B7280',    // Placeholder / micro-copy
+    primary: '#0D9488',       // Deep professional teal/emerald
+    primaryHover: '#0F766E',
     success: '#10B981',
     warning: '#F59E0B',
     danger: '#EF4444',
   },
-  typography: {
-    display: 'text-3xl lg:text-4xl font-extrabold tracking-tight',
-    pageTitle: 'text-xl lg:text-2xl font-bold text-white',
-    sectionHeading: 'text-base lg:text-lg font-semibold text-white',
-    cardHeading: 'text-sm font-semibold text-slate-200',
-    body: 'text-sm text-slate-300',
-    secondary: 'text-xs text-slate-400',
-    label: 'text-xs font-medium text-slate-400 uppercase tracking-wider',
-  },
-  borderRadius: {
-    card: 'rounded-2xl',
-    input: 'rounded-xl',
-    button: 'rounded-xl',
+  shadows: {
+    card: 'shadow-[0_1px_3px_0_rgba(0,0,0,0.3),0_1px_2px_-1px_rgba(0,0,0,0.3)]',
+    dropdown: 'shadow-xl shadow-black/50',
   }
 };
