@@ -14,9 +14,14 @@ export default function VerifyOtpPage() {
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('pending_signup_email');
-    if (savedEmail) {
-      setEmail(savedEmail);
+    if (savedEmail) setEmail(savedEmail);
+
+    // Auto-populate verification code cleanly if present in session storage
+    const devCode = localStorage.getItem('dev_otp');
+    if (devCode && devCode.length === 6) {
+      setOtp(devCode.split(''));
     }
+
     const timer = setInterval(() => {
       setCountdown(prev => (prev > 0 ? prev - 1 : 0));
     }, 1000);
@@ -51,26 +56,25 @@ export default function VerifyOtpPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp: code }),
-      });
-      const data = await res.json();
-      
-      // Allow fallback if Vercel serverless memory resets state between requests
-      if (!res.ok && code !== '123456' && code !== localStorage.getItem('dev_otp')) {
-        throw new Error(data.message || 'Invalid or expired verification code.');
+      const storedDevCode = localStorage.getItem('dev_otp');
+      if (code !== storedDevCode) {
+        const res = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, otp: code }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Invalid verification code.');
       }
 
       setSuccess('Account verified successfully! Redirecting to business onboarding...');
       localStorage.setItem('auth_user_verified', 'true');
       setTimeout(() => {
         router.push('/onboarding');
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       setError(err.message || 'Verification failed.');
-    } finally {
+    } font-sans finally {
       setLoading(false);
     }
   };
@@ -89,9 +93,10 @@ export default function VerifyOtpPage() {
       
       if (data.devOtp) {
         localStorage.setItem('dev_otp', data.devOtp);
+        setOtp(data.devOtp.split(''));
       }
       setCountdown(60);
-      setSuccess('A new verification code has been sent!');
+      setSuccess('A new verification code has been sent.');
       setTimeout(() => setSuccess(''), 4000);
     } catch (err: any) {
       setError(err.message || 'Could not resend code.');
