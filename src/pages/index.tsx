@@ -22,7 +22,7 @@ export default function EnterpriseLandingPage() {
           <span className="font-bold text-white text-base tracking-wider uppercase font-mono">MY-AUDITOR</span>
         </div>
         <div className="flex items-center gap-4 text-xs font-medium">
-          <Link href="/login" className="px-4 py-2.5 rounded-xl text-slate-300 hover:text-white transition">
+          <Link href="/auth/signin" className="px-4 py-2.5 rounded-xl text-slate-300 hover:text-white transition">
             Log In
           </Link>
           <Link href="/signup" className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold transition shadow-lg shadow-teal-900/20 flex items-center gap-1.5">
@@ -31,7 +31,7 @@ export default function EnterpriseLandingPage() {
         </div>
       </header>
 
-      {/* Hero Section: African CEO sitting in office on computer */}
+      {/* Hero Section: Executive CEO working at office desk */}
       <section className="px-6 lg:px-16 py-16 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-7 space-y-6 text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
@@ -55,7 +55,7 @@ export default function EnterpriseLandingPage() {
               Start Auditing Your Business <ArrowRight className="w-4 h-4" />
             </Link>
             <Link 
-              href="/login" 
+              href="/auth/signin" 
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[#111827] hover:bg-[#182234] border border-[#1F293B] text-slate-200 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer"
             >
               Sign In to Command Centre
@@ -78,16 +78,16 @@ export default function EnterpriseLandingPage() {
           </div>
         </div>
 
-        {/* Hero Visual Card: CEO sitting at executive office desk checking computer */}
+        {/* Hero Visual Card: African CEO in Office Working on Computer */}
         <div className="lg:col-span-5">
           <div className="relative rounded-2xl overflow-hidden border border-[#1F293B] shadow-2xl bg-[#111827] group">
             <div className="relative h-[380px] w-full">
               <img 
-                src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1000&auto=format&fit=crop" 
-                alt="African CEO sitting in office working on computer" 
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
+                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1000&auto=format&fit=crop" 
+                alt="African executive working on computer in office" 
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition duration-500"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/30 to-transparent" />
             </div>
 
             <div className="absolute bottom-6 left-6 right-6 p-4 rounded-xl bg-[#0E1522]/95 backdrop-blur-md border border-[#1F293B] space-y-2">
@@ -132,8 +132,8 @@ export default function EnterpriseLandingPage() {
       <footer className="border-t border-[#1F293B] py-8 px-6 lg:px-16 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono">
         <div>© 2026 MY-AUDITOR ENTERPRISE FINANCIAL INTELLIGENCE LTD. ALL RIGHTS RESERVED.</div>
         <div className="flex items-center gap-6">
-          <Link href="/login" className="hover:text-slate-300">Privacy Policy</Link>
-          <Link href="/login" className="hover:text-slate-300">Terms of Service</Link>
+          <Link href="/auth/signin" className="hover:text-slate-300">Privacy Policy</Link>
+          <Link href="/auth/signin" className="hover:text-slate-300">Terms of Service</Link>
         </div>
       </footer>
 

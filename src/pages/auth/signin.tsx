@@ -17,13 +17,13 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen bg-[#0A0E17] text-[#F9FAFB] grid grid-cols-1 lg:grid-cols-12 font-sans antialiased">
       
-      {/* Left Column: Professional African Executive Office Photography Showcase */}
+      {/* Left Column: African Corporate Executive Office Showcase */}
       <div className="hidden lg:flex lg:col-span-7 relative overflow-hidden bg-[#0E1522] border-r border-[#1F293B] flex-col justify-between p-12">
         <div className="absolute inset-0">
           <img 
-            src="https://images.unsplash.com/photo-1531384441138-2736e62e0919?q=80&w=1200&auto=format&fit=crop" 
-            alt="African business executive reviewing financial intelligence" 
-            className="w-full h-full object-cover object-center opacity-40"
+            src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1200&auto=format&fit=crop" 
+            alt="African business manager working on laptop" 
+            className="w-full h-full object-cover object-center opacity-30"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/60 to-transparent" />
         </div>
@@ -36,7 +36,7 @@ export default function SignInPage() {
           <span className="font-bold text-white text-base tracking-wider uppercase font-mono">MY-AUDITOR</span>
         </div>
 
-        {/* Bottom Quote / Telemetry */}
+        {/* Bottom Feature Text */}
         <div className="relative z-10 space-y-3 max-w-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
             <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
@@ -51,7 +51,7 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* Right Column: Secure Login Form */}
+      {/* Right Column: Clean Login Form */}
       <div className="lg:col-span-5 flex flex-col justify-center px-6 sm:px-12 py-12">
         <div className="max-w-md w-full mx-auto space-y-8 bg-[#111827] border border-[#1F293B] p-8 rounded-3xl shadow-2xl">
           
@@ -69,7 +69,7 @@ export default function SignInPage() {
               <div className="relative">
                 <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
                 <input 
-                  type="email5" 
+                  type="email" 
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
