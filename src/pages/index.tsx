@@ -31,7 +31,7 @@ export default function EnterpriseLandingPage() {
         </div>
       </header>
 
-      {/* Hero Section with Local African CEO Office Image */}
+      {/* Hero Section */}
       <section className="px-6 lg:px-16 py-16 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-7 space-y-6 text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
@@ -78,13 +78,13 @@ export default function EnterpriseLandingPage() {
           </div>
         </div>
 
-        {/* Hero Visual Card Featuring Local African CEO Office Photo */}
+        {/* Hero Visual Card: CEO Sitting in Office Desk Working on Computer */}
         <div className="lg:col-span-5">
           <div className="relative rounded-2xl overflow-hidden border border-[#1F293B] shadow-2xl bg-[#111827] group">
             <div className="relative h-[380px] w-full">
               <img 
-                src="/images/african-ceo-office.jpg" 
-                alt="African CEO sitting in his office checking MY-AUDITOR on his computer" 
+                src="/images/ceo-office-desk-v1.jpg" 
+                alt="Executive CEO sitting at office desk checking financial intelligence on laptop" 
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/20 to-transparent" />
