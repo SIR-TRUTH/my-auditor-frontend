@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { ShieldCheck, Lock, Mail, ArrowRight, CheckCircle2, Building2 } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, ArrowRight } from 'lucide-react';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -17,9 +17,17 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen bg-[#0A0E17] text-[#F9FAFB] grid grid-cols-1 lg:grid-cols-12 font-sans antialiased">
       
-      {/* Left Column: Native Enterprise Dashboard Card */}
+      {/* Left Column: African CEO Office Photo Showcase */}
       <div className="hidden lg:flex lg:col-span-7 relative overflow-hidden bg-[#0E1522] border-r border-[#1F293B] flex-col justify-between p-12">
-        
+        <div className="absolute inset-0">
+          <img 
+            src="/images/african-ceo-office.jpg" 
+            alt="African CEO working in office" 
+            className="w-full h-full object-cover object-center opacity-40"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/60 to-transparent" />
+        </div>
+
         {/* Top Brand Logo */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold">
@@ -28,39 +36,16 @@ export default function SignInPage() {
           <span className="font-bold text-white text-base tracking-wider uppercase font-mono">MY-AUDITOR</span>
         </div>
 
-        {/* Native Telemetry Preview Card */}
-        <div className="relative z-10 max-w-xl bg-[#111827] border border-[#1F293B] rounded-2xl p-6 shadow-2xl space-y-4">
-          <div className="flex items-center justify-between border-b border-[#1F293B] pb-3">
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-teal-400" />
-              <span className="font-bold text-white text-xs">Enterprise HQ • Lagos</span>
-            </div>
-            <span className="text-[10px] font-mono text-teal-400 font-bold">SYSTEM ONLINE</span>
+        {/* Bottom Feature Text */}
+        <div className="relative z-10 space-y-3 max-w-xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+            <span>Continuous Audit &amp; Enterprise Security</span>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#0A0E17] p-3 rounded-xl border border-[#1F293B]">
-              <div className="text-[10px] text-slate-400">Total Sales Today</div>
-              <div className="text-sm font-bold text-white font-mono mt-1">₦4,850,200.00</div>
-            </div>
-            <div className="bg-[#0A0E17] p-3 rounded-xl border border-[#1F293B]">
-              <div className="text-[10px] text-slate-400">Reconciliation Match</div>
-              <div className="text-sm font-bold text-teal-400 font-mono mt-1">100.0% Matched</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-slate-300">
-            <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-            <span>Double-entry ledger status: verified and fully compliant.</span>
-          </div>
-        </div>
-
-        {/* Bottom Heading */}
-        <div className="relative z-10 space-y-2 max-w-xl">
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">
+          <h2 className="text-3xl font-extrabold text-white tracking-tight">
             Uncompromised visibility across all your branch ledgers.
           </h2>
-          <p className="text-slate-400 text-xs leading-relaxed">
+          <p className="text-slate-300 text-sm leading-relaxed">
             Verify daily cash drops, POS settlements, inventory WAC valuation, and double-entry accounting in real time.
           </p>
         </div>
