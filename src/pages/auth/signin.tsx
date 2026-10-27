@@ -17,13 +17,13 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen bg-[#0A0E17] text-[#F9FAFB] grid grid-cols-1 lg:grid-cols-12 font-sans antialiased">
       
-      {/* Left Column: African Corporate Executive Office Showcase */}
+      {/* Left Column: African Executive Office Showcase */}
       <div className="hidden lg:flex lg:col-span-7 relative overflow-hidden bg-[#0E1522] border-r border-[#1F293B] flex-col justify-between p-12">
         <div className="absolute inset-0">
           <img 
-            src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1200&auto=format&fit=crop" 
-            alt="African business manager working on laptop" 
-            className="w-full h-full object-cover object-center opacity-30"
+            src="/images/african-exec-office.jpg" 
+            alt="African business executive reviewing financial dashboard" 
+            className="w-full h-full object-cover object-center opacity-40"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/60 to-transparent" />
         </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, BarChart3, Layers, CheckCircle2, Building2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Building2 } from 'lucide-react';
 
 export default function EnterpriseLandingPage() {
   const industries = [
@@ -31,7 +31,7 @@ export default function EnterpriseLandingPage() {
         </div>
       </header>
 
-      {/* Hero Section: Executive CEO working at office desk */}
+      {/* Hero Section */}
       <section className="px-6 lg:px-16 py-16 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-7 space-y-6 text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
@@ -83,11 +83,11 @@ export default function EnterpriseLandingPage() {
           <div className="relative rounded-2xl overflow-hidden border border-[#1F293B] shadow-2xl bg-[#111827] group">
             <div className="relative h-[380px] w-full">
               <img 
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1000&auto=format&fit=crop" 
+                src="/images/african-ceo.jpg" 
                 alt="African executive working on computer in office" 
                 className="w-full h-full object-cover object-top group-hover:scale-105 transition duration-500"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/20 to-transparent" />
             </div>
 
             <div className="absolute bottom-6 left-6 right-6 p-4 rounded-xl bg-[#0E1522]/95 backdrop-blur-md border border-[#1F293B] space-y-2">
