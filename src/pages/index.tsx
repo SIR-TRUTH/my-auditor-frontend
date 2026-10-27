@@ -31,7 +31,7 @@ export default function EnterpriseLandingPage() {
         </div>
       </header>
 
-      {/* Hero Section with African CEO in Office on Computer */}
+      {/* Hero Section: African CEO sitting in office on computer */}
       <section className="px-6 lg:px-16 py-16 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-7 space-y-6 text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
@@ -78,16 +78,16 @@ export default function EnterpriseLandingPage() {
           </div>
         </div>
 
-        {/* Hero Visual Card: CEO sitting in office checking MY-AUDITOR on computer */}
+        {/* Hero Visual Card: CEO sitting at executive office desk checking computer */}
         <div className="lg:col-span-5">
           <div className="relative rounded-2xl overflow-hidden border border-[#1F293B] shadow-2xl bg-[#111827] group">
             <div className="relative h-[380px] w-full">
               <img 
-                src="https://images.unsplash.com/photo-1531384441138-2736e62e0919?q=80&w=1000&auto=format&fit=crop" 
-                alt="African CEO sitting in his office checking MY-AUDITOR on his computer" 
+                src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1000&auto=format&fit=crop" 
+                alt="African CEO sitting in office working on computer" 
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/20 to-transparent" />
             </div>
 
             <div className="absolute bottom-6 left-6 right-6 p-4 rounded-xl bg-[#0E1522]/95 backdrop-blur-md border border-[#1F293B] space-y-2">
