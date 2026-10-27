@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, BarChart3, Layers, CheckCircle2, Building2, BrainCircuit, Zap } from 'lucide-react';
+import { ShieldCheck, ArrowRight, BarChart3, Layers, CheckCircle2, Building2 } from 'lucide-react';
 
 export default function EnterpriseLandingPage() {
   const industries = [
@@ -31,7 +31,7 @@ export default function EnterpriseLandingPage() {
         </div>
       </header>
 
-      {/* Hero Section with Real African Business Owner Photo */}
+      {/* Hero Section with African CEO in Office on Computer */}
       <section className="px-6 lg:px-16 py-16 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-7 space-y-6 text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
@@ -78,35 +78,33 @@ export default function EnterpriseLandingPage() {
           </div>
         </div>
 
-        {/* Hero Visual Card Featuring Professional African Business Owner Photography */}
+        {/* Hero Visual Card: CEO sitting in office checking MY-AUDITOR on computer */}
         <div className="lg:col-span-5">
           <div className="relative rounded-2xl overflow-hidden border border-[#1F293B] shadow-2xl bg-[#111827] group">
-            {/* Real Professional African Entrepreneur / Business Owner Photo */}
             <div className="relative h-[380px] w-full">
               <img 
                 src="https://images.unsplash.com/photo-1531384441138-2736e62e0919?q=80&w=1000&auto=format&fit=crop" 
-                alt="African business owner reviewing financial intelligence" 
+                alt="African CEO sitting in his office checking MY-AUDITOR on his computer" 
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/40 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/30 to-transparent" />
             </div>
 
-            {/* Floating Live Telemetry Badge */}
-            <div className="absolute bottom-6 left-6 right-6 p-4 rounded-xl bg-[#0E1522]/90 backdrop-blur-md border border-[#1F293B] space-y-2">
+            <div className="absolute bottom-6 left-6 right-6 p-4 rounded-xl bg-[#0E1522]/95 backdrop-blur-md border border-[#1F293B] space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-white">Lagos Flagship Store Audit</span>
-                <span className="text-teal-400 font-mono font-bold">● LIVE</span>
+                <span className="font-bold text-white">Executive Command Centre</span>
+                <span className="text-teal-400 font-mono font-bold">● LIVE SYNC</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">Daily Sales Verified</span>
-                <span className="font-bold text-white font-mono text-sm">₦4,850,200.00</span>
+                <span className="text-[11px] text-slate-400">Real-Time Ledger Check</span>
+                <span className="font-bold text-emerald-400 font-mono text-xs">Zero Discrepancies</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Industries We Serve with Real Business Photos */}
+      {/* Industries We Serve */}
       <section className="py-20 px-6 lg:px-16 max-w-7xl mx-auto space-y-12 border-t border-[#1F293B]">
         <div className="text-center max-w-2xl mx-auto space-y-3">
           <span className="text-teal-400 font-mono text-xs uppercase tracking-widest font-bold">BUILT FOR AFRICAN COMMERCE</span>
@@ -118,11 +116,7 @@ export default function EnterpriseLandingPage() {
           {industries.map((ind, idx) => (
             <div key={idx} className="bg-[#111827] border border-[#1F293B] rounded-2xl overflow-hidden group hover:border-teal-500/50 transition">
               <div className="h-44 w-full relative overflow-hidden">
-                <img 
-                  src={ind.image} 
-                  alt={ind.name} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
+                <img src={ind.image} alt={ind.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent" />
               </div>
               <div className="p-6 space-y-2">
@@ -134,40 +128,12 @@ export default function EnterpriseLandingPage() {
         </div>
       </section>
 
-      {/* Pricing CTA */}
-      <section className="py-20 border-t border-[#1F293B] bg-gradient-to-b from-[#0A0E17] to-[#0E1522] px-6 lg:px-16 text-center">
-        <div className="max-w-4xl mx-auto space-y-6 bg-[#111827] border border-[#1F293B] rounded-3xl p-12 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-          
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white">Ready to secure your business financials?</h2>
-          <p className="text-slate-300 text-sm max-w-xl mx-auto">
-            Join leading Nigerian and African business owners who trust MY-AUDITOR for complete visibility and continuous audit protection.
-          </p>
-
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link 
-              href="/signup" 
-              className="px-8 py-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-teal-900/30 cursor-pointer"
-            >
-              Start Auditing Your Business
-            </Link>
-            <Link 
-              href="/login" 
-              className="px-8 py-4 rounded-xl bg-[#0A0E17] hover:bg-[#182234] border border-[#1F293B] text-slate-200 font-bold text-xs uppercase tracking-wider transition cursor-pointer"
-            >
-              Sign In
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* Footer */}
       <footer className="border-t border-[#1F293B] py-8 px-6 lg:px-16 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono">
         <div>© 2026 MY-AUDITOR ENTERPRISE FINANCIAL INTELLIGENCE LTD. ALL RIGHTS RESERVED.</div>
         <div className="flex items-center gap-6">
           <Link href="/login" className="hover:text-slate-300">Privacy Policy</Link>
           <Link href="/login" className="hover:text-slate-300">Terms of Service</Link>
-          <Link href="/login" className="hover:text-slate-300">Security Audit</Link>
         </div>
       </footer>
 

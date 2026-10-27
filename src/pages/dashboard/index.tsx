@@ -14,19 +14,19 @@ import {
 export default function ExecutiveDashboard() {
   const slides = [
     {
-      image: '/images/slides/slide-1.svg',
+      image: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=1200&auto=format&fit=crop',
       title: 'Financial Intelligence Overview',
-      desc: 'Real-time double-entry ledger & P&L tracking',
+      desc: 'Real-time double-entry ledger & P&L tracking across all active branches',
     },
     {
-      image: '/images/slides/slide-2.svg',
+      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1200&auto=format&fit=crop',
       title: 'Continuous Audit Health',
-      desc: 'Zero discrepancies detected across active branches',
+      desc: 'Zero discrepancies detected by automated forensic compliance checks',
     },
     {
-      image: '/images/slides/slide-3.svg',
+      image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=1200&auto=format&fit=crop',
       title: 'Inventory & WAC Valuation',
-      desc: 'Automated weighted average cost tracking',
+      desc: 'Automated weighted average cost tracking with zero revenue leakage',
     },
   ];
 
@@ -72,13 +72,13 @@ export default function ExecutiveDashboard() {
       }
     >
       {/* DASHBOARD HERO SLIDESHOW */}
-      <div className="w-full relative rounded-xl overflow-hidden border border-[#1F293B] bg-[#111827] shadow-lg h-48 sm:h-64">
+      <div className="w-full relative rounded-xl overflow-hidden border border-[#1F293B] bg-[#111827] shadow-lg h-52 sm:h-64">
         <img 
           src={slides[currentSlide].image} 
           alt={slides[currentSlide].title} 
-          className="w-full h-full object-cover transition-opacity duration-700"
+          className="w-full h-full object-cover opacity-40 transition-opacity duration-700"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-transparent to-transparent flex flex-col justify-end p-6">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/60 to-transparent flex flex-col justify-end p-6">
           <span className="text-[10px] font-mono text-teal-400 font-bold uppercase tracking-wider">COMMAND CENTRE HIGHLIGHT</span>
           <h2 className="text-lg sm:text-xl font-bold text-white">{slides[currentSlide].title}</h2>
           <p className="text-xs text-slate-300">{slides[currentSlide].desc}</p>
@@ -86,13 +86,13 @@ export default function ExecutiveDashboard() {
 
         <button 
           onClick={() => setCurrentSlide((currentSlide - 1 + slides.length) % slides.length)}
-          className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/50 border border-white/10 text-white hover:bg-teal-600 transition cursor-pointer"
+          className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 border border-white/10 text-white hover:bg-teal-600 transition cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
         <button 
           onClick={() => setCurrentSlide((currentSlide + 1) % slides.length)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/50 border border-white/10 text-white hover:bg-teal-600 transition cursor-pointer"
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 border border-white/10 text-white hover:bg-teal-600 transition cursor-pointer"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -173,7 +173,7 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* THIRD ROW: P&L Timeline (65%) & Audit Health (35%) */}
+      {/* THIRD ROW: P&L Timeline & Audit Health */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-[#111827] border border-[#1F293B] rounded-xl p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between">
@@ -188,7 +188,6 @@ export default function ExecutiveDashboard() {
           </div>
 
           <div className="h-64 flex flex-col items-center justify-center text-center border border-dashed border-[#1F293B] rounded-lg bg-[#0A0E17]/40 p-6 space-y-2">
-            <img src="/images/empty-states/no-sales.svg" alt="No Sales Timeline" className="w-24 h-24 opacity-60 mx-auto" />
             <span className="text-xs font-medium text-slate-400">No transactions recorded for timeline</span>
             <span className="text-[11px] text-slate-600">Days without transactions correctly report ₦0.00</span>
           </div>
