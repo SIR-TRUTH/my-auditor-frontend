@@ -1,157 +1,232 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, BarChart3, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShieldCheck, ArrowRight, BarChart3, Layers, CheckCircle2, Building2, BrainCircuit, ReceiptText, Lock, Zap } from 'lucide-react';
 
-export default function LandingPage() {
-  const slides = [
-    {
-      image: '/images/slides/slide-1.svg',
-      tag: 'FINANCIAL INTELLIGENCE',
-      title: 'Real-Time Ledger & P&L Tracking',
-      desc: 'Deterministic double-entry accounting built for retail, multi-branch, and enterprise ops.',
-    },
-    {
-      image: '/images/slides/slide-2.svg',
-      tag: 'CONTINUOUS COMPLIANCE',
-      title: 'Automated Anomaly Detection',
-      desc: 'Prevent revenue leakage, supplier overbilling, and unverified inventory write-offs.',
-    },
-    {
-      image: '/images/slides/slide-3.svg',
-      tag: 'ENTERPRISE INVENTORY',
-      title: 'Weighted Average Cost (WAC)',
-      desc: 'Consolidated stock valuation and branch-level inventory control across Nigeria & beyond.',
-    },
+export default function EnterpriseLandingPage() {
+  const industries = [
+    { name: 'Supermarkets & Retail', desc: 'Barcode scanning, POS reconciliation, and WAC stock tracking.', icon: Building2 },
+    { name: 'Pharmacies & Medical', desc: 'Batch expiry tracking, controlled substance audits, and supplier ledger control.', icon: ShieldCheck },
+    { name: 'Restaurants & Bars', desc: 'Recipe inventory depletion, kitchen waste audits, and daily cash reconciliation.', icon: Layers },
+    { name: 'Hotels & Hospitality', desc: 'Room revenue audit, POS split payments, and asset depreciation tracking.', icon: BarChart3 },
+    { name: 'Manufacturing & Logistics', desc: 'Raw material costing, production batch audits, and dispatch sign-offs.', icon: Zap },
   ];
-
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [slides.length]);
 
   return (
     <div className="min-h-screen bg-[#0A0E17] text-[#F9FAFB] flex flex-col font-sans antialiased selection:bg-teal-500/30 selection:text-teal-300">
       
       {/* Top Navbar */}
-      <header className="h-20 border-b border-[#1F293B] px-6 lg:px-12 flex items-center justify-between bg-[#0E1522]/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="h-20 border-b border-[#1F293B] px-6 lg:px-16 flex items-center justify-between bg-[#0E1522]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold shadow-sm">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <span className="font-bold text-white text-base tracking-wider uppercase font-mono">MY-AUDITOR</span>
         </div>
         <div className="flex items-center gap-4 text-xs font-medium">
-          <Link href="/login" className="px-4 py-2 rounded-xl text-slate-300 hover:text-white transition">
+          <Link href="/login" className="px-4 py-2.5 rounded-xl text-slate-300 hover:text-white transition">
             Log In
           </Link>
-          <Link href="/signup" className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold transition shadow-md flex items-center gap-1.5">
-            Sign Up <ArrowRight className="w-3.5 h-3.5" />
+          <Link href="/signup" className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold transition shadow-lg shadow-teal-900/20 flex items-center gap-1.5">
+            Start Auditing <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center max-w-6xl mx-auto space-y-10">
-        
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
-          <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-          <span>Enterprise Financial Intelligence &amp; Continuous Audit</span>
+      {/* Hero Section */}
+      <section className="px-6 lg:px-16 py-20 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="lg:col-span-7 space-y-6 text-left">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+            <span>Continuous Financial Intelligence for African Enterprise</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-[1.1]">
+            Know the Truth About <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-400">Your Business.</span>
+          </h1>
+
+          <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
+            MY-AUDITOR continuously checks your sales, expenses, inventory, payments, and financial records in real time—eliminating revenue leakage and providing uncompromised visibility across all your branch locations.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
+            <Link 
+              href="/signup" 
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-xl shadow-teal-900/30 cursor-pointer"
+            >
+              Start Auditing Your Business <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link 
+              href="/login" 
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[#111827] hover:bg-[#182234] border border-[#1F293B] text-slate-200 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              Sign In to Command Centre
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 pt-6 border-t border-[#1F293B] text-xs">
+            <div>
+              <div className="font-bold text-white font-mono text-base">₦50B+</div>
+              <div className="text-slate-400">Audited Ledger Volume</div>
+            </div>
+            <div>
+              <div className="font-bold text-teal-400 font-mono text-base">99.8%</div>
+              <div className="text-slate-400">Inventory Accuracy</div>
+            </div>
+            <div>
+              <div className="font-bold text-white font-mono text-base">24/7</div>
+              <div className="text-slate-400">Automated AI Checks</div>
+            </div>
+          </div>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight max-w-4xl">
-          Smart Store Auditing &amp; <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-400">Financial Intelligence</span>
-        </h1>
+        {/* Hero Visual Card representing authentic African business environment */}
+        <div className="lg:col-span-5">
+          <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-6 shadow-2xl relative overflow-hidden space-y-6">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex items-center justify-between border-b border-[#1F293B] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold">
+                  HQ
+                </div>
+                <div>
+                  <div className="font-bold text-white text-sm">Lagos Flagship Store</div>
+                  <div className="text-[11px] text-teal-400 font-mono">● LIVE AUDIT ACTIVE</div>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-300 text-[11px] font-mono font-bold">NGN (₦)</span>
+            </div>
 
-        {/* HERO SLIDESHOW CAROUSEL */}
-        <div className="w-full relative rounded-2xl overflow-hidden border border-[#1F293B] bg-[#111827] shadow-2xl aspect-[16/8] sm:aspect-[21/9]">
-          <img 
-            src={slides[currentSlide].image} 
-            alt={slides[currentSlide].title} 
-            className="w-full h-full object-cover transition-opacity duration-700"
-          />
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-xl bg-[#0A0E17] border border-[#1F293B] flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-400">Real-Time Daily Sales</div>
+                  <div className="text-base font-bold text-white font-mono">₦4,850,200.00</div>
+                </div>
+                <span className="text-xs font-bold text-teal-400 bg-teal-500/10 px-2 py-1 rounded">+14.2%</span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#0A0E17] border border-[#1F293B] flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-400">POS Reconciliation Match</div>
+                  <div className="text-base font-bold text-white font-mono">100.0% Verified</div>
+                </div>
+                <CheckCircle2 className="w-5 h-5 text-teal-400" />
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#0A0E17] border border-[#1F293B] flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-400">Continuous Audit Flags</div>
+                  <div className="text-base font-bold text-emerald-400 font-mono">0 Open Discrepancies</div>
+                </div>
+                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-teal-500/5 border border-teal-500/20 text-xs text-slate-300 flex items-center gap-2">
+              <BrainCircuit className="w-4 h-4 text-teal-400 shrink-0" />
+              <span>AI Forensic CPA verified zero revenue leakage at 01:45 AM.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-20 border-t border-[#1F293B] bg-[#0E1522]/50 px-6 lg:px-16">
+        <div className="max-w-7xl mx-auto space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <span className="text-teal-400 font-mono text-xs uppercase tracking-widest font-bold">SEAMLESS INTEGRATION</span>
+            <h2 className="text-3xl font-bold text-white">How MY-AUDITOR Protects Your Business</h2>
+            <p className="text-slate-400 text-sm">Deploy institutional-grade audit safeguards in minutes without altering your daily POS or sales workflow.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-8 space-y-4">
+              <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold font-mono text-lg">01</div>
+              <h3 className="text-base font-bold text-white">Connect &amp; Import</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Link your bank feeds, POS terminals, and inventory logs. MY-AUDITOR organizes records into a pristine double-entry ledger.
+              </p>
+            </div>
+
+            <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-8 space-y-4">
+              <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold font-mono text-lg">02</div>
+              <h3 className="text-base font-bold text-white">Continuous AI Audit</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Our automated algorithms cross-examine cash drops, supplier invoices, and stock depletions 24/7 to catch discrepancies instantly.
+              </p>
+            </div>
+
+            <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-8 space-y-4">
+              <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold font-mono text-lg">03</div>
+              <h3 className="text-base font-bold text-white">Gain Executive Clarity</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Review verified P&amp;L reports, cash positions, and forensic insights from any branch before making strategic growth decisions.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Industries We Serve */}
+      <section className="py-20 px-6 lg:px-16 max-w-7xl mx-auto space-y-12">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <span className="text-teal-400 font-mono text-xs uppercase tracking-widest font-bold">BUILT FOR AFRICAN COMMERCE</span>
+          <h2 className="text-3xl font-bold text-white">Industries We Serve</h2>
+          <p className="text-slate-400 text-sm">Tailored financial intelligence engineered for the unique realities of African retail, wholesale, and services.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {industries.map((ind, idx) => {
+            const Icon = ind.icon;
+            return (
+              <div key={idx} className="bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-4 hover:border-teal-500/50 transition">
+                <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center">
+                  <Icon className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-white">{ind.name}</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">{ind.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Pricing CTA */}
+      <section className="py-20 border-t border-[#1F293B] bg-gradient-to-b from-[#0A0E17] to-[#0E1522] px-6 lg:px-16 text-center">
+        <div className="max-w-4xl mx-auto space-y-6 bg-[#111827] border border-[#1F293B] rounded-3xl p-12 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
           
-          {/* Slideshow Controls & Indicators */}
-          <button 
-            onClick={() => setCurrentSlide((currentSlide - 1 + slides.length) % slides.length)}
-            className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 border border-white/10 text-white hover:bg-teal-600 transition cursor-pointer"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={() => setCurrentSlide((currentSlide + 1) % slides.length)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 border border-white/10 text-white hover:bg-teal-600 transition cursor-pointer"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white">Ready to secure your business financials?</h2>
+          <p className="text-slate-300 text-sm max-w-xl mx-auto">
+            Join leading Nigerian and African business owners who trust MY-AUDITOR for complete visibility and continuous audit protection.
+          </p>
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
-            {slides.map((_, idx) => (
-              <button 
-                key={idx}
-                onClick={() => setCurrentSlide(idx)}
-                className={`h-2 rounded-full transition-all cursor-pointer ${idx === currentSlide ? 'w-8 bg-teal-400' : 'w-2 bg-slate-600'}`}
-              />
-            ))}
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link 
+              href="/signup" 
+              className="px-8 py-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-teal-900/30 cursor-pointer"
+            >
+              Start Auditing Your Business
+            </Link>
+            <Link 
+              href="/login" 
+              className="px-8 py-4 rounded-xl bg-[#0A0E17] hover:bg-[#182234] border border-[#1F293B] text-slate-200 font-bold text-xs uppercase tracking-wider transition cursor-pointer"
+            >
+              Sign In
+            </Link>
           </div>
         </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
-          <Link 
-            href="/signup" 
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-lg cursor-pointer"
-          >
-            Create Enterprise Account <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link 
-            href="/login" 
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#111827] hover:bg-[#182234] border border-[#1F293B] text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            Sign In to Command Centre
-          </Link>
-        </div>
-
-        {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 w-full text-left">
-          <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-white">Continuous Audit</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Real-time automated inspection of every transaction, invoice, and ledger entry for complete accuracy.
-            </p>
-          </div>
-
-          <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center">
-              <BarChart3 className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-white">WAC &amp; Inventory</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Precise weighted average cost valuation and branch stock tracking with zero leakage.
-            </p>
-          </div>
-
-          <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center">
-              <Layers className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-white">Multi-Branch Sync</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Consolidated financial performance across all store locations with strict RBAC permissions.
-            </p>
-          </div>
-        </div>
-
-      </main>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-[#1F293B] py-6 px-6 text-center text-[11px] font-mono text-slate-500">
-        MY-AUDITOR ENTERPRISE FINANCIAL INTELLIGENCE • SECURE PRODUCTION v2.4
+      <footer className="border-t border-[#1F293B] py-8 px-6 lg:px-16 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono">
+        <div>© 2026 MY-AUDITOR ENTERPRISE FINANCIAL INTELLIGENCE LTD. ALL RIGHTS RESERVED.</div>
+        <div className="flex items-center gap-6">
+          <Link href="/login" className="hover:text-slate-300">Privacy Policy</Link>
+          <Link href="/login" className="hover:text-slate-300">Terms of Service</Link>
+          <Link href="/login" className="hover:text-slate-300">Security Audit</Link>
+        </div>
       </footer>
 
     </div>
