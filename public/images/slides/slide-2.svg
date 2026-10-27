@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111827" />
+      <stop offset="100%" stop-color="#0E1522" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#bg2)" rx="16" />
+  <circle cx="250" cy="300" r="220" fill="#0D9488" opacity="0.08" />
+
+  <!-- Shield Visual -->
+  <path d="M 900 120 L 1050 180 V 320 C 1050 420 900 480 900 480 C 900 480 750 420 750 320 V 180 Z" fill="#0E1522" stroke="#14B8A6" stroke-width="4" />
+  <path d="M 850 290 L 885 325 L 950 260" fill="none" stroke="#10B981" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Content Block -->
+  <text x="80" y="220" fill="#14B8A6" font-family="sans-serif" font-weight="bold" font-size="18" letter-spacing="2">CONTINUOUS COMPLIANCE</text>
+  <text x="80" y="280" fill="#F9FAFB" font-family="sans-serif" font-weight="extrabold" font-size="42">Automated Anomaly Detection</text>
+  <text x="80" y="330" fill="#9CA3AF" font-family="sans-serif" font-size="18">Prevent revenue leakage, supplier overbilling, and unverified inventory write-offs.</text>
+</svg>
