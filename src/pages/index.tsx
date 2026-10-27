@@ -1,15 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, ArrowRight, Building2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Building2, BarChart3, Layers, CheckCircle2 } from 'lucide-react';
 
 export default function EnterpriseLandingPage() {
-  const industries = [
-    { name: 'Supermarkets & Retail', desc: 'Barcode scanning, POS reconciliation, and WAC stock tracking.', image: 'https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?q=80&w=800&auto=format&fit=crop' },
-    { name: 'Pharmacies & Medical', desc: 'Batch expiry tracking, controlled substance audits, and supplier ledger control.', image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=800&auto=format&fit=crop' },
-    { name: 'Restaurants & Bars', desc: 'Recipe inventory depletion, kitchen waste audits, and daily cash reconciliation.', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800&auto=format&fit=crop' },
-    { name: 'Hotels & Hospitality', desc: 'Room revenue audit, POS split payments, and asset depreciation tracking.', image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800&auto=format&fit=crop' },
-  ];
-
   return (
     <div className="min-h-screen bg-[#0A0E17] text-[#F9FAFB] flex flex-col font-sans antialiased selection:bg-teal-500/30 selection:text-teal-300">
       
@@ -78,53 +71,53 @@ export default function EnterpriseLandingPage() {
           </div>
         </div>
 
-        {/* Hero Visual Card: African CEO in Office Working on Computer */}
+        {/* Custom Native Dashboard Card Illustration */}
         <div className="lg:col-span-5">
-          <div className="relative rounded-2xl overflow-hidden border border-[#1F293B] shadow-2xl bg-[#111827] group">
-            <div className="relative h-[380px] w-full">
-              <img 
-                src="/images/african-ceo.jpg" 
-                alt="African executive working on computer in office" 
-                className="w-full h-full object-cover object-top group-hover:scale-105 transition duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-[#0A0E17]/20 to-transparent" />
+          <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-6 shadow-2xl space-y-5 relative overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#1F293B] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold">
+                  HQ
+                </div>
+                <div>
+                  <div className="font-bold text-white text-sm">Lagos Flagship Store</div>
+                  <div className="text-[11px] text-teal-400 font-mono">● LIVE AUDIT ACTIVE</div>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-300 text-[11px] font-mono font-bold">NGN (₦)</span>
             </div>
 
-            <div className="absolute bottom-6 left-6 right-6 p-4 rounded-xl bg-[#0E1522]/95 backdrop-blur-md border border-[#1F293B] space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-white">Executive Command Centre</span>
-                <span className="text-teal-400 font-mono font-bold">● LIVE SYNC</span>
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-[#0A0E17] border border-[#1F293B] flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-400">Real-Time Daily Sales</div>
+                  <div className="text-lg font-bold text-white font-mono">₦4,850,200.00</div>
+                </div>
+                <span className="text-xs font-bold text-teal-400 bg-teal-500/10 px-2 py-1 rounded">+14.2%</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">Real-Time Ledger Check</span>
-                <span className="font-bold text-emerald-400 font-mono text-xs">Zero Discrepancies</span>
+
+              <div className="p-4 rounded-xl bg-[#0A0E17] border border-[#1F293B] flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-400">POS Reconciliation Match</div>
+                  <div className="text-sm font-bold text-white font-mono">100.0% Verified</div>
+                </div>
+                <CheckCircle2 className="w-5 h-5 text-teal-400" />
               </div>
+
+              <div className="p-4 rounded-xl bg-[#0A0E17] border border-[#1F293B] flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-400">Continuous Audit Flags</div>
+                  <div className="text-sm font-bold text-emerald-400 font-mono">0 Open Discrepancies</div>
+                </div>
+                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-xs text-teal-300 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" />
+              <span>AI Forensic CPA verified zero revenue leakage at 01:45 AM.</span>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Industries We Serve */}
-      <section className="py-20 px-6 lg:px-16 max-w-7xl mx-auto space-y-12 border-t border-[#1F293B]">
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <span className="text-teal-400 font-mono text-xs uppercase tracking-widest font-bold">BUILT FOR AFRICAN COMMERCE</span>
-          <h2 className="text-3xl font-bold text-white">Industries We Serve</h2>
-          <p className="text-slate-400 text-sm">Tailored financial intelligence engineered for African retail, supermarkets, hospitality, and growing enterprises.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {industries.map((ind, idx) => (
-            <div key={idx} className="bg-[#111827] border border-[#1F293B] rounded-2xl overflow-hidden group hover:border-teal-500/50 transition">
-              <div className="h-44 w-full relative overflow-hidden">
-                <img src={ind.image} alt={ind.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent" />
-              </div>
-              <div className="p-6 space-y-2">
-                <h3 className="text-base font-bold text-white">{ind.name}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">{ind.desc}</p>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 
