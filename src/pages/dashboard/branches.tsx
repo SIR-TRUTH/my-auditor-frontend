@@ -13,26 +13,7 @@ import {
 
 export default function BranchesPage() {
   const [modalOpen, setModalOpen] = useState(false);
-  const [branchesList, setBranchesList] = useState<any[]>([
-    {
-      id: 1,
-      name: 'Victoria Island HQ',
-      location: 'Lagos Island, Lagos',
-      manager: 'Chidi Okonkwo',
-      revenue: 4850000,
-      inventoryValuation: 12500000,
-      status: 'Fully Audited & Active'
-    },
-    {
-      id: 2,
-      name: 'Ikeja City Store',
-      location: 'Ikeja, Lagos',
-      manager: 'Amina Bello',
-      revenue: 3200000,
-      inventoryValuation: 8400000,
-      status: 'Fully Audited & Active'
-    }
-  ]);
+  const [branchesList, setBranchesList] = useState<any[]>([]);
 
   const [branchName, setBranchName] = useState('');
   const [location, setLocation] = useState('');
@@ -109,38 +90,45 @@ export default function BranchesPage() {
           <span className="text-xs text-slate-400">Showing regional sales, localized inventory valuations, and managers</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#0A0E17] text-slate-400 border-b border-[#1F293B] uppercase font-mono text-[10px]">
-                <th className="p-4">Branch Name</th>
-                <th className="p-4">Location / Region</th>
-                <th className="p-4">Store Manager</th>
-                <th className="p-4">Logged Sales (₦)</th>
-                <th className="p-4">Inventory Valuation (₦)</th>
-                <th className="p-4">Audit Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1F293B] text-slate-300">
-              {branchesList.map((branch) => (
-                <tr key={branch.id} className="hover:bg-[#182234]/50">
-                  <td className="p-4 font-bold text-white flex items-center gap-2">
-                    <Building2 className="w-3.5 h-3.5 text-teal-400" /> {branch.name}
-                  </td>
-                  <td className="p-4 font-mono flex items-center gap-1 text-slate-300">
-                    <MapPin className="w-3 h-3 text-slate-500" /> {branch.location}
-                  </td>
-                  <td className="p-4 font-semibold text-slate-200">
-                    <span className="flex items-center gap-1"><Users className="w-3 h-3 text-teal-400" /> {branch.manager}</span>
-                  </td>
-                  <td className="p-4 font-mono text-teal-400 font-bold">₦{branch.revenue.toLocaleString()}</td>
-                  <td className="p-4 font-mono text-slate-300">₦{branch.inventoryValuation.toLocaleString()}</td>
-                  <td className="p-4"><span className="text-emerald-400 font-semibold">{branch.status}</span></td>
+        {branchesList.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <Building2 className="w-10 h-10 text-slate-600 mx-auto" />
+            <p className="text-xs text-slate-400">No branches added yet. Click "Onboard New Branch" to log your first outlet.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#0A0E17] text-slate-400 border-b border-[#1F293B] uppercase font-mono text-[10px]">
+                  <th className="p-4">Branch Name</th>
+                  <th className="p-4">Location / Region</th>
+                  <th className="p-4">Store Manager</th>
+                  <th className="p-4">Logged Sales (₦)</th>
+                  <th className="p-4">Inventory Valuation (₦)</th>
+                  <th className="p-4">Audit Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-[#1F293B] text-slate-300">
+                {branchesList.map((branch) => (
+                  <tr key={branch.id} className="hover:bg-[#182234]/50">
+                    <td className="p-4 font-bold text-white flex items-center gap-2">
+                      <Building2 className="w-3.5 h-3.5 text-teal-400" /> {branch.name}
+                    </td>
+                    <td className="p-4 font-mono flex items-center gap-1 text-slate-300">
+                      <MapPin className="w-3 h-3 text-slate-500" /> {branch.location}
+                    </td>
+                    <td className="p-4 font-semibold text-slate-200">
+                      <span className="flex items-center gap-1"><Users className="w-3 h-3 text-teal-400" /> {branch.manager}</span>
+                    </td>
+                    <td className="p-4 font-mono text-teal-400 font-bold">₦{branch.revenue.toLocaleString()}</td>
+                    <td className="p-4 font-mono text-slate-300">₦{branch.inventoryValuation.toLocaleString()}</td>
+                    <td className="p-4"><span className="text-emerald-400 font-semibold">{branch.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {modalOpen && (
