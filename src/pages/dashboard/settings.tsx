@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import { 
-  Settings, 
-  Shield, 
   Building, 
+  Shield, 
   Users, 
   Save, 
   CheckCircle2, 
-  Lock, 
   KeyRound 
 } from 'lucide-react';
 
@@ -18,7 +16,7 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState('NGN (₦ - Nigerian Naira)');
   const [savedStatus, setSavedStatus] = useState(false);
 
-  const [teamMembers, setTeamMembers] = useState([
+  const [teamMembers] = useState([
     { id: 1, name: 'Chidi Okonkwo', email: 'chidi@myauditor.ng', role: 'Enterprise Administrator', status: 'Active' },
     { id: 2, name: 'Amina Bello', email: 'amina@myauditor.ng', role: 'Senior Accountant', status: 'Active' },
     { id: 3, name: 'Segun Adebayo', email: 'segun@myauditor.ng', role: 'Branch Auditor', status: 'Active' }
@@ -36,7 +34,6 @@ export default function SettingsPage() {
       subtitle="Configure enterprise compliance parameters, tax settings, and user permission hierarchies."
     >
       <div className="space-y-6 max-w-4xl">
-        {/* SUCCESS NOTIFICATION BANNER */}
         {savedStatus && (
           <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center gap-3 text-emerald-400">
             <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
@@ -44,7 +41,6 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* COMPANY PROFILE & TAX CONFIG */}
         <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-5 shadow-xl">
           <div className="flex items-center gap-2.5 border-b border-[#1F293B] pb-4">
             <Building className="w-5 h-5 text-teal-400" />
@@ -114,7 +110,6 @@ export default function SettingsPage() {
           </form>
         </div>
 
-        {/* ROLE-BASED ACCESS CONTROL (RBAC) */}
         <div className="bg-[#111827] border border-[#1F293B] rounded-2xl overflow-hidden shadow-xl">
           <div className="p-5 border-b border-[#1F293B] flex items-center justify-between">
             <div className="flex items-center gap-2.5">
