@@ -34,7 +34,6 @@ export default function BranchesPage() {
     }
   ]);
 
-  // Form state
   const [branchName, setBranchName] = useState('');
   const [location, setLocation] = useState('');
   const [manager, setManager] = useState('');
@@ -74,7 +73,6 @@ export default function BranchesPage() {
         </div>
       }
     >
-      {/* TELEMETRY KPI ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-[#111827] border border-[#1F293B] rounded-xl p-5 space-y-2">
           <div className="flex items-center justify-between">
@@ -105,7 +103,6 @@ export default function BranchesPage() {
         </div>
       </div>
 
-      {/* BRANCHES LEDGER TABLE */}
       <div className="bg-[#111827] border border-[#1F293B] rounded-2xl overflow-hidden shadow-xl">
         <div className="p-5 border-b border-[#1F293B] flex items-center justify-between">
           <h2 className="text-sm font-bold text-white">Registered Enterprise Branches &amp; Outlets</h2>
@@ -146,7 +143,6 @@ export default function BranchesPage() {
         </div>
       </div>
 
-      {/* ONBOARD BRANCH MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#111827] border border-[#1F293B] rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative">
