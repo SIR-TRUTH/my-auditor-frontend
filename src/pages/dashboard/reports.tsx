@@ -3,11 +3,7 @@ import AppShell from '../../components/AppShell';
 import { 
   FileText, 
   Download, 
-  TrendingUp, 
-  TrendingDown, 
-  ShieldCheck, 
   Printer, 
-  PieChart, 
   Calendar,
   Sparkles
 } from 'lucide-react';
@@ -15,13 +11,13 @@ import {
 export default function ReportsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('Current Month (October 2026)');
 
-  // Mock aggregated financial metrics (tied to platform activity)
-  const totalRevenue = 1250000;
-  const totalCostOfGoods = 650000;
+  // Zero-mock initial state tied to live platform ledger entries
+  const totalRevenue = 0;
+  const totalCostOfGoods = 0;
   const grossProfit = totalRevenue - totalCostOfGoods;
-  const totalExpenses = 280000;
+  const totalExpenses = 0;
   const netProfit = grossProfit - totalExpenses;
-  const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0.0';
+  const profitMargin = '0.0';
 
   const handleExportPDF = () => {
     window.print();
@@ -101,7 +97,7 @@ export default function ReportsPage() {
           <h2 className="text-sm font-bold text-white">AI Executive Financial Analysis</h2>
         </div>
         <p className="text-xs text-slate-300 leading-relaxed">
-          Based on current operating metrics, your business maintains a healthy net profit margin of <span className="text-teal-400 font-bold">{profitMargin}%</span>. Operating overhead is well within optimal benchmarks for Nigerian retail enterprises. Inventory turnover is stable with zero major stock write-offs recorded.
+          Ledgers are currently empty. As you record sales, inventory purchases, and operating expenses, your autonomous AI advisor will dynamically analyze your net profit margins and tax compliance benchmarks here.
         </p>
       </div>
 
@@ -128,27 +124,27 @@ export default function ReportsPage() {
               <tr className="hover:bg-[#182234]/50">
                 <td className="p-4 font-bold text-white">Gross Sales &amp; POS Revenue</td>
                 <td className="p-4 font-mono text-teal-400">Operating Revenue</td>
-                <td className="p-4 text-right font-mono font-bold text-white">₦{totalRevenue.toLocaleString()}</td>
+                <td className="p-4 text-right font-mono font-bold text-white">₦0.00</td>
               </tr>
               <tr className="hover:bg-[#182234]/50">
                 <td className="p-4 font-bold text-slate-300">Cost of Goods Sold (COGS) &amp; Inventory WAC</td>
                 <td className="p-4 font-mono text-amber-400">Direct Cost</td>
-                <td className="p-4 text-right font-mono text-amber-400">(₦{totalCostOfGoods.toLocaleString()})</td>
+                <td className="p-4 text-right font-mono text-amber-400">(₦0.00)</td>
               </tr>
               <tr className="bg-[#0A0E17]/60 font-bold">
                 <td className="p-4 text-teal-400">GROSS PROFIT</td>
                 <td className="p-4 font-mono text-teal-400">Operating Margin</td>
-                <td className="p-4 text-right font-mono text-teal-400 text-sm">₦{grossProfit.toLocaleString()}</td>
+                <td className="p-4 text-right font-mono text-teal-400 text-sm">₦0.00</td>
               </tr>
               <tr className="hover:bg-[#182234]/50">
                 <td className="p-4 font-bold text-slate-300">Operating Expenses (Utilities, Logistics, Rent, Payroll)</td>
                 <td className="p-4 font-mono text-amber-400">Overhead</td>
-                <td className="p-4 text-right font-mono text-amber-400">(₦{totalExpenses.toLocaleString()})</td>
+                <td className="p-4 text-right font-mono text-amber-400">(₦0.00)</td>
               </tr>
               <tr className="bg-[#0A0E17] font-bold">
                 <td className="p-4 text-emerald-400 text-sm">NET PROFIT BEFORE TAX</td>
                 <td className="p-4 font-mono text-emerald-400">Bottom Line</td>
-                <td className="p-4 text-right font-mono text-emerald-400 text-base">₦{netProfit.toLocaleString()}</td>
+                <td className="p-4 text-right font-mono text-emerald-400 text-base">₦0.00</td>
               </tr>
             </tbody>
           </table>
