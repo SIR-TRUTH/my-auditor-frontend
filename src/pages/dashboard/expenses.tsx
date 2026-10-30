@@ -7,33 +7,29 @@ import {
   CheckCircle2, 
   Camera, 
   Upload, 
-  TrendingDown, 
-  ShieldCheck, 
   FileSpreadsheet, 
-  Tag,
-  Building2
+  WalletCards 
 } from 'lucide-react';
 
 export default function ExpensesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [cameraModalOpen, setCameraModalOpen] = useState(false);
-  const [scanStatus, setScanStatus] = useState('Align receipt within camera viewfinder');
+  const [scanStatus, setScanStatus] = useState('Align expense receipt or vendor bill within camera viewfinder');
 
-  // Expense List (Starts empty to reflect real user activity)
-  const [expensesList, setExpensesList] = useState<any[]>([]);
+  // Expense Ledger List (Starts empty)
+  const [expenseList, setExpenseList] = useState<any[]>([]);
 
-  // Form States
+  // Form States for Manual Input
   const [expenseTitle, setExpenseTitle] = useState('');
-  const [category, setCategory] = useState('Utilities & Power');
-  const [amount, setAmount] = useState(0);
-  const [paymentChannel, setPaymentChannel] = useState('Bank Transfer');
-  const [vendor, setVendor] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState('Operational Overhead');
+  const [expenseAmount, setExpenseAmount] = useState(0);
+  const [vendorName, setVendorName] = useState('');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const csvInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Start Live Camera Viewfinder
+  // Start Camera Viewfinder
   const startCamera = async () => {
     setCameraModalOpen(true);
     setScanStatus('Initializing camera sensor...');
@@ -58,12 +54,11 @@ export default function ExpensesPage() {
     setCameraModalOpen(false);
   };
 
-  // Handle OCR Simulated Extraction from Camera or Upload
-  const handleReceiptExtracted = (extractedVendor: string, extractedAmt: number, extractedCat: string) => {
-    setVendor(extractedVendor || 'Lagos Power Distribution (EKEDC)');
-    setAmount(extractedAmt || 45000);
-    setCategory(extractedCat || 'Utilities & Power');
-    setExpenseTitle(`Monthly ${extractedCat || 'Utility'} Bill Payment`);
+  const handleOCRScanned = (extractedTitle: string, extractedAmt: number, extractedVendor: string) => {
+    setExpenseTitle(extractedTitle || 'Diesel & Generator Maintenance');
+    setExpenseAmount(extractedAmt || 45000);
+    setVendorName(extractedVendor || 'TotalEnergies Marketing Plc');
+    setExpenseCategory('Utilities & Energy');
     stopCamera();
     setModalOpen(true);
   };
@@ -73,22 +68,21 @@ export default function ExpensesPage() {
     const newExpense = {
       id: Date.now(),
       title: expenseTitle || 'General Expense',
-      vendor: vendor || 'Corporate Vendor',
-      category: category,
-      amount: amount,
-      channel: paymentChannel,
+      category: expenseCategory,
+      amount: expenseAmount,
+      vendor: vendorName || 'Direct Vendor',
       status: 'Verified & Audited',
       date: new Date().toLocaleDateString(),
     };
-    setExpensesList([newExpense, ...expensesList]);
+    setExpenseList([newExpense, ...expenseList]);
     setModalOpen(false);
     // Reset Form
     setExpenseTitle('');
-    setVendor('');
-    setAmount(0);
+    setExpenseAmount(0);
+    setVendorName('');
   };
 
-  const totalExpenses = expensesList.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalExpenses = expenseList.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <AppShell 
@@ -111,12 +105,12 @@ export default function ExpensesPage() {
         </div>
       }
     >
-      {/* FINANCIAL TELEMETRY KPI ROW */}
+      {/* KPI TELEMETRY ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-[#111827] border border-[#1F293B] rounded-xl p-5 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400 uppercase font-semibold">Total Operating Expenses</span>
-            <span className="p-1 rounded bg-amber-500/10 text-amber-400"><TrendingDown className="w-3.5 h-3.5" /></span>
+            <span className="p-1 rounded bg-teal-500/10 text-teal-400"><WalletCards className="w-3.5 h-3.5" /></span>
           </div>
           <div className="text-2xl font-bold text-white font-mono">
             ₦{totalExpenses.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
@@ -128,13 +122,13 @@ export default function ExpensesPage() {
             <span className="text-xs text-slate-400 uppercase font-semibold">Logged Expense Entries</span>
             <span className="p-1 rounded bg-teal-500/10 text-teal-400"><ReceiptText className="w-3.5 h-3.5" /></span>
           </div>
-          <div className="text-2xl font-bold text-teal-400 font-mono">{expensesList.length}</div>
+          <div className="text-2xl font-bold text-teal-400 font-mono">{expenseList.length}</div>
         </div>
 
         <div className="bg-[#111827] border border-[#1F293B] rounded-xl p-5 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400 uppercase font-semibold">AI Audit Compliance</span>
-            <span className="p-1 rounded bg-teal-500/10 text-teal-400"><ShieldCheck className="w-3.5 h-3.5" /></span>
+            <span className="p-1 rounded bg-teal-500/10 text-teal-400"><CheckCircle2 className="w-3.5 h-3.5" /></span>
           </div>
           <div className="text-sm font-bold text-emerald-400 flex items-center gap-1.5 mt-1">
             <CheckCircle2 className="w-4 h-4" /> 100% Verified
@@ -142,7 +136,7 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* CSV / POS & RECEIPT INGESTION BAR */}
+      {/* CSV INGESTION & CAMERA SCANNER BAR */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#111827] border border-[#1F293B] rounded-2xl p-6 space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
@@ -187,39 +181,37 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* EXPENSES LEDGER TABLE */}
+      {/* EXPENSE LEDGER TABLE */}
       <div className="bg-[#111827] border border-[#1F293B] rounded-2xl overflow-hidden shadow-xl">
         <div className="p-5 border-b border-[#1F293B] flex items-center justify-between">
           <h2 className="text-sm font-bold text-white">Expense Transactions Ledger</h2>
           <span className="text-xs text-slate-400">Showing verified disbursements, vendors, and audit statuses</span>
         </div>
 
-        {expensesList.length === 0 ? (
+        {expenseList.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <ReceiptText className="w-10 h-10 text-slate-600 mx-auto" />
-            <p className="text-xs text-slate-400">No expenses recorded yet. Click "Record Expense" or use the AI Scanner to log your first bill.</p>
+            <p className="text-xs text-slate-400">No expenses recorded yet. Click "Record Expense" to manually add an expense or use the AI Scanner.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#0A0E17] text-slate-400 border-b border-[#1F293B] uppercase font-mono text-[10px]">
-                  <th className="p-4">Expense / Title</th>
-                  <th className="p-4">Vendor / Payee</th>
+                  <th className="p-4">Expense Title</th>
                   <th className="p-4">Category</th>
+                  <th className="p-4">Vendor / Payee</th>
                   <th className="p-4">Amount (₦)</th>
-                  <th className="p-4">Channel</th>
                   <th className="p-4">Audit Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1F293B] text-slate-300">
-                {expensesList.map((exp) => (
+                {expenseList.map((exp) => (
                   <tr key={exp.id} className="hover:bg-[#182234]/50">
                     <td className="p-4 font-bold text-white">{exp.title}</td>
-                    <td className="p-4">{exp.vendor}</td>
                     <td className="p-4"><span className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 text-[10px] font-mono">{exp.category}</span></td>
-                    <td className="p-4 font-mono text-amber-400 font-bold">₦{exp.amount.toLocaleString()}</td>
-                    <td className="p-4">{exp.channel}</td>
+                    <td className="p-4">{exp.vendor}</td>
+                    <td className="p-4 font-mono text-teal-400 font-bold">₦{exp.amount.toLocaleString()}</td>
                     <td className="p-4"><span className="text-emerald-400 font-semibold">{exp.status}</span></td>
                   </tr>
                 ))}
@@ -236,7 +228,7 @@ export default function ExpensesPage() {
             <div className="flex items-center justify-between border-b border-[#1F293B] pb-3">
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-teal-400" />
-                <h3 className="text-sm font-bold text-white">AI Receipt &amp; Invoice Scanner</h3>
+                <h3 className="text-sm font-bold text-white">AI Camera Receipt Scanner</h3>
               </div>
               <button onClick={stopCamera} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -244,13 +236,13 @@ export default function ExpensesPage() {
             </div>
 
             <div 
-              onClick={() => handleReceiptExtracted('Lagos Power (EKEDC)', 48500, 'Utilities & Power')}
+              onClick={() => handleOCRScanned('Generator Diesel Refill (50 Litres)', 75000, 'Mobil Oil Nigeria')}
               className="relative w-full h-72 bg-black rounded-xl overflow-hidden border border-[#1F293B] flex items-center justify-center cursor-pointer group"
             >
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
               <div className="absolute inset-0 border-2 border-teal-500/30 rounded-xl pointer-events-none flex items-center justify-center">
                 <div className="w-60 h-44 border-2 border-dashed border-teal-400 rounded-xl relative animate-pulse flex items-center justify-center bg-teal-500/5">
-                  <span className="text-[10px] font-mono text-teal-300 bg-black/80 px-3 py-1 rounded">TAP TO EXTRACT RECEIPT DATA</span>
+                  <span className="text-[10px] font-mono text-teal-300 bg-black/80 px-3 py-1 rounded">TAP TO EXTRACT RECEIPT</span>
                 </div>
               </div>
             </div>
@@ -268,7 +260,7 @@ export default function ExpensesPage() {
                 className="hidden"
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
-                    handleReceiptExtracted('Dangote Cement Logistics', 150000, 'Logistics & Dispatch');
+                    handleOCRScanned('Office Internet & Fiber Subscription', 35000, 'Spectranet 4G LTE');
                   }
                 }}
               />
@@ -284,7 +276,7 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* RECORD EXPENSE MODAL */}
+      {/* MANUAL RECORD EXPENSE MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#111827] border border-[#1F293B] rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl relative">
@@ -303,67 +295,49 @@ export default function ExpensesPage() {
                   required
                   value={expenseTitle}
                   onChange={(e) => setExpenseTitle(e.target.value)}
-                  placeholder="e.g. Monthly Diesel for Generator"
+                  placeholder="e.g. Monthly Warehouse Rent & Maintenance"
                   className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-teal-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Vendor / Payee Name *</label>
-                  <input 
-                    type="text"
-                    required
-                    value={vendor}
-                    onChange={(e) => setVendor(e.target.value)}
-                    placeholder="e.g. Total Energies PLC"
-                    className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-teal-500"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Expense Category *</label>
+                  <label className="text-xs font-semibold text-slate-300">Category *</label>
                   <select 
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={expenseCategory}
+                    onChange={(e) => setExpenseCategory(e.target.value)}
                     className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-teal-500 cursor-pointer"
                   >
-                    <option value="Utilities & Power">Utilities &amp; Power</option>
-                    <option value="Logistics & Dispatch">Logistics &amp; Dispatch</option>
-                    <option value="Rent & Facility">Rent &amp; Facility</option>
-                    <option value="Staff Payroll">Staff Payroll</option>
-                    <option value="Maintenance & Repairs">Maintenance &amp; Repairs</option>
-                    <option value="Administrative">Administrative</option>
+                    <option value="Operational Overhead">Operational Overhead</option>
+                    <option value="Utilities & Energy">Utilities &amp; Energy</option>
+                    <option value="Logistics & Transport">Logistics &amp; Transport</option>
+                    <option value="Salaries & Payroll">Salaries &amp; Payroll</option>
                   </select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-300">Amount (₦) *</label>
                   <input 
                     type="number" 
                     min="0"
                     required
-                    value={amount}
-                    onChange={(e) => setAmount(Number(e.target.value))}
+                    value={expenseAmount}
+                    onChange={(e) => setExpenseAmount(Number(e.target.value))}
                     className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-teal-500"
                   />
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Payment Channel *</label>
-                  <select 
-                    value={paymentChannel}
-                    onChange={(e) => setPaymentChannel(e.target.value)}
-                    className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-teal-500 cursor-pointer"
-                  >
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="POS Terminal">POS Terminal</option>
-                    <option value="Cash Disbursement">Cash Disbursement</option>
-                    <option value="Company Card">Company Card</option>
-                  </select>
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Vendor / Payee Name *</label>
+                <input 
+                  type="text"
+                  required
+                  value={vendorName}
+                  onChange={(e) => setVendorName(e.target.value)}
+                  placeholder="e.g. Ikeja Electric Distribution Company"
+                  className="w-full bg-[#0A0E17] border border-[#1F293B] rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-teal-500"
+                />
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-3">
@@ -378,7 +352,7 @@ export default function ExpensesPage() {
                   type="submit" 
                   className="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs transition shadow-lg cursor-pointer"
                 >
-                  Save &amp; Audit Expense
+                  Save &amp; Post Expense
                 </button>
               </div>
             </form>
