@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import AppShell from '../../components/AppShell';
 import { Plus, Package, X, CheckCircle2, Camera, Upload, QrCode, Receipt } from 'lucide-react';
 
-// Update this to your live Railway backend URL if not using relative proxy rewrites
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://my-auditor-backend-production.up.railway.app';
 
 export default function InventoryPage() {
@@ -12,6 +11,7 @@ export default function InventoryPage() {
   const [scanMessage, setScanMessage] = useState('Align QR code / barcode within frame');
 
   const [inventoryList, setInventoryList] = useState<any[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Form states
   const [productName, setProductName] = useState('');
@@ -23,21 +23,23 @@ export default function InventoryPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Fetch inventory from Railway backend / Supabase on page mount & navigation return
-  const fetchInventory = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/inventory`);
-      if (res.ok) {
-        const data = await res.json();
-        // Map backend fields to frontend UI fields if necessary
-        setInventoryList(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch inventory from backend:', err);
-    }
-  };
-
+  // Safe fetch with error guards to prevent React hydration errors
   useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/inventory`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setInventoryList(data);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load inventory:', err);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
     fetchInventory();
   }, []);
 
@@ -95,6 +97,7 @@ export default function InventoryPage() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const newItem = {
+      id: Date.now(),
       sku: skuCode || 'SKU-001',
       name: productName,
       qty: openingQty,
@@ -103,27 +106,20 @@ export default function InventoryPage() {
       valuation: openingQty * costPrice,
     };
 
+    // Optimistically update UI immediately
+    setInventoryList(prev => [newItem, ...prev]);
+    setModalOpen(false);
+
     try {
-      // Send to Railway backend to persist in Supabase
-      const res = await fetch(`${API_BASE_URL}/api/inventory`, {
+      await fetch(`${API_BASE_URL}/api/inventory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newItem),
       });
-
-      if (res.ok) {
-        // Re-fetch latest inventory from database
-        await fetchInventory();
-      } else {
-        // Fallback local update if API route differs
-        setInventoryList([{ id: Date.now(), ...newItem }, ...inventoryList]);
-      }
     } catch (err) {
-      console.error('Error saving product:', err);
-      setInventoryList([{ id: Date.now(), ...newItem }, ...inventoryList]);
+      console.error('Backend sync error:', err);
     }
 
-    setModalOpen(false);
     // Reset form
     setProductName('');
     setSkuCode('');
@@ -132,7 +128,7 @@ export default function InventoryPage() {
     setSellingPrice(0);
   };
 
-  const totalValuation = inventoryList.reduce((acc, curr) => acc + (curr.valuation || (curr.qty * curr.cost)), 0);
+  const totalValuation = inventoryList.reduce((acc, curr) => acc + (curr.valuation || ((curr.qty ?? curr.opening_qty) * (curr.cost ?? curr.cost_price))), 0);
   const activeSkus = inventoryList.length;
 
   return (
