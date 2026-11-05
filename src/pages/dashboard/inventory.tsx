@@ -1,6 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AppShell from '../../components/AppShell';
 import { Plus, Package, X, CheckCircle2, Camera, Upload, QrCode, Receipt } from 'lucide-react';
+
+// Update this to your live Railway backend URL if not using relative proxy rewrites
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://my-auditor-backend-production.up.railway.app';
 
 export default function InventoryPage() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -8,7 +11,6 @@ export default function InventoryPage() {
   const [scanType, setScanType] = useState<'qr' | 'receipt'>('qr');
   const [scanMessage, setScanMessage] = useState('Align QR code / barcode within frame');
 
-  // Start with an empty list so valuation is ₦0.00 until you add items
   const [inventoryList, setInventoryList] = useState<any[]>([]);
 
   // Form states
@@ -20,6 +22,24 @@ export default function InventoryPage() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Fetch inventory from Railway backend / Supabase on page mount & navigation return
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/inventory`);
+      if (res.ok) {
+        const data = await res.json();
+        // Map backend fields to frontend UI fields if necessary
+        setInventoryList(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch inventory from backend:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   // Open Camera for QR or Receipt scanning
   const startScanner = async (type: 'qr' | 'receipt') => {
@@ -54,7 +74,6 @@ export default function InventoryPage() {
     setCameraModalOpen(false);
   };
 
-  // Handle successful scan simulation or OCR extraction
   const handleScanSuccess = (detectedName: string, detectedCost: number, detectedPrice: number) => {
     if (scanType === 'qr') {
       setProductName(detectedName || 'Scanned SKU Item');
@@ -73,10 +92,9 @@ export default function InventoryPage() {
     setModalOpen(true);
   };
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const newItem = {
-      id: Date.now(),
       sku: skuCode || 'SKU-001',
       name: productName,
       qty: openingQty,
@@ -84,7 +102,27 @@ export default function InventoryPage() {
       price: sellingPrice,
       valuation: openingQty * costPrice,
     };
-    setInventoryList([newItem, ...inventoryList]);
+
+    try {
+      // Send to Railway backend to persist in Supabase
+      const res = await fetch(`${API_BASE_URL}/api/inventory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newItem),
+      });
+
+      if (res.ok) {
+        // Re-fetch latest inventory from database
+        await fetchInventory();
+      } else {
+        // Fallback local update if API route differs
+        setInventoryList([{ id: Date.now(), ...newItem }, ...inventoryList]);
+      }
+    } catch (err) {
+      console.error('Error saving product:', err);
+      setInventoryList([{ id: Date.now(), ...newItem }, ...inventoryList]);
+    }
+
     setModalOpen(false);
     // Reset form
     setProductName('');
@@ -94,7 +132,7 @@ export default function InventoryPage() {
     setSellingPrice(0);
   };
 
-  const totalValuation = inventoryList.reduce((acc, curr) => acc + curr.valuation, 0);
+  const totalValuation = inventoryList.reduce((acc, curr) => acc + (curr.valuation || (curr.qty * curr.cost)), 0);
   const activeSkus = inventoryList.length;
 
   return (
@@ -152,7 +190,7 @@ export default function InventoryPage() {
         {inventoryList.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <Package className="w-10 h-10 text-slate-600 mx-auto" />
-            <p className="text-xs text-slate-400">No inventory added yet. Click "Add Product", "Scan QR", or "Scan Receipt" to begin stock tracking.</p>
+            <p className="text-xs text-slate-400">No inventory found. Click "Add Product", "Scan QR", or "Scan Receipt" to begin stock tracking.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -169,13 +207,13 @@ export default function InventoryPage() {
               </thead>
               <tbody className="divide-y divide-[#1F293B] text-slate-300">
                 {inventoryList.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#182234]/50">
+                  <tr key={item.id || item.sku} className="hover:bg-[#182234]/50">
                     <td className="p-4 font-mono font-bold text-teal-400">{item.sku}</td>
                     <td className="p-4 font-bold text-white">{item.name}</td>
-                    <td className="p-4 font-mono">{item.qty}</td>
-                    <td className="p-4 font-mono">₦{item.cost.toLocaleString()}</td>
-                    <td className="p-4 font-mono">₦{item.price.toLocaleString()}</td>
-                    <td className="p-4 font-mono text-teal-400 font-bold">₦{item.valuation.toLocaleString()}</td>
+                    <td className="p-4 font-mono">{item.qty ?? item.opening_qty}</td>
+                    <td className="p-4 font-mono">₦{(item.cost ?? item.cost_price)?.toLocaleString()}</td>
+                    <td className="p-4 font-mono">₦{(item.price ?? item.selling_price)?.toLocaleString()}</td>
+                    <td className="p-4 font-mono text-teal-400 font-bold">₦{(item.valuation ?? ((item.qty ?? item.opening_qty) * (item.cost ?? item.cost_price)))?.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -184,7 +222,7 @@ export default function InventoryPage() {
         )}
       </div>
 
-      {/* CAMERA SCANNER MODAL (QR & RECEIPT OCR) */}
+      {/* CAMERA SCANNER MODAL */}
       {cameraModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#111827] border border-[#1F293B] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
@@ -200,7 +238,6 @@ export default function InventoryPage() {
               </button>
             </div>
 
-            {/* Video Viewport with Interactive Tap-to-Scan */}
             <div 
               onClick={() => handleScanSuccess('Scanned Premium Item', 850, 1500)}
               className="relative w-full h-72 bg-black rounded-xl overflow-hidden border border-[#1F293B] flex items-center justify-center cursor-pointer group"
